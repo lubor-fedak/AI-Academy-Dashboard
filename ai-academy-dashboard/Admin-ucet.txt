@@ -1,0 +1,33 @@
+ADMIN ÚČET - INŠTRUKCIE
+========================
+
+Email: admin@example.com
+Meno: Admin User
+
+KROK 1: Vytvor používateľa v Supabase Dashboard
+-----------------------------------------------
+1. Otvor https://supabase.com/dashboard
+2. Vyber projekt
+3. Authentication → Users → Add user → Create new user
+4. Email: admin@example.com
+5. Password: (tvoje heslo)
+6. Klikni "Create user"
+
+KROK 2: Spusti SQL v SQL Editor
+-------------------------------
+INSERT INTO admin_users (user_id, email, name, is_active)
+SELECT id, 'admin@example.com', 'Admin User', true
+FROM auth.users
+WHERE email = 'admin@example.com'
+ON CONFLICT (email) DO UPDATE SET is_active = true, updated_at = NOW();
+
+KROK 3: Over že to funguje
+--------------------------
+SELECT * FROM admin_users WHERE email = 'admin@example.com';
+
+HOTOVO!
+-------
+Teraz sa môžeš prihlásiť na https://www.kyndrylai.online/login
+- Klikni na tab "Admin"
+- Zadaj email a heslo
+- Alebo použi "Poslať prihlasovací link" pre magic link

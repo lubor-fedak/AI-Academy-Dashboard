@@ -26,6 +26,8 @@ interface ReviewFormProps {
   participantName: string;
   assignmentTitle: string;
   onReviewComplete: () => void;
+  existingRating?: number;
+  existingNotes?: string;
 }
 
 export function ReviewForm({
@@ -33,11 +35,15 @@ export function ReviewForm({
   participantName,
   assignmentTitle,
   onReviewComplete,
+  existingRating,
+  existingNotes,
 }: ReviewFormProps) {
-  const [rating, setRating] = useState<string>('');
-  const [notes, setNotes] = useState('');
+  const [rating, setRating] = useState<string>(existingRating?.toString() ?? '');
+  const [notes, setNotes] = useState(existingNotes ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+
+  const isEdit = existingRating !== undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,14 +85,14 @@ export function ReviewForm({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button size="sm" variant={isEdit ? 'secondary' : 'outline'}>
           <Star className="mr-2 h-4 w-4" />
-          Review
+          {isEdit ? 'Edit Review' : 'Review'}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Review Submission</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit Review' : 'Review Submission'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -132,7 +138,7 @@ export function ReviewForm({
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Submit Review
+              {isEdit ? 'Update Review' : 'Submit Review'}
             </Button>
           </div>
         </form>

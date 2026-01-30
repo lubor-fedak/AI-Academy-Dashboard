@@ -10,6 +10,8 @@ export type AssignmentType = 'in_class' | 'homework';
 
 export type SubmissionStatus = 'submitted' | 'reviewed' | 'needs_revision' | 'approved';
 
+export type UserStatus = 'pending' | 'approved' | 'rejected';
+
 export interface Participant {
   id: string;
   github_username: string;
@@ -20,6 +22,18 @@ export interface Participant {
   stream: StreamType;
   avatar_url: string | null;
   repo_url: string | null;
+  status: UserStatus;
+  is_admin: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminUser {
+  id: string;
+  user_id: string;
+  email: string;
+  name: string;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -173,3 +187,56 @@ export const TEAM_COLORS: Record<TeamType, string> = {
   'Eta': 'bg-orange-500',
   'Theta': 'bg-cyan-500',
 };
+
+// Peer Review types
+export type PeerReviewStatus = 'pending' | 'completed' | 'skipped';
+
+export interface PeerReview {
+  id: string;
+  submission_id: string;
+  reviewer_id: string;
+  rating: number | null;
+  feedback: string | null;
+  is_anonymous: boolean;
+  status: PeerReviewStatus;
+  bonus_points_earned: number;
+  assigned_at: string;
+  completed_at: string | null;
+}
+
+export interface PeerReviewWithDetails extends PeerReview {
+  submissions: {
+    id: string;
+    commit_message: string | null;
+    readme_content: string | null;
+    commit_url: string | null;
+    participants: Pick<Participant, 'name' | 'github_username' | 'avatar_url' | 'role' | 'team'> | null;
+    assignments: Pick<Assignment, 'title' | 'day' | 'type'> | null;
+  } | null;
+}
+
+export interface PeerReviewStats {
+  total_reviews_given: number;
+  total_reviews_received: number;
+  avg_rating_given: number | null;
+  avg_rating_received: number | null;
+  bonus_points_earned: number;
+}
+
+// Comment types
+export interface Comment {
+  id: string;
+  submission_id: string;
+  author_id: string;
+  parent_id: string | null;
+  content: string;
+  created_at: string;
+  updated_at: string | null;
+  is_edited: boolean;
+}
+
+export interface CommentWithAuthor extends Comment {
+  author: Pick<Participant, 'id' | 'name' | 'github_username' | 'avatar_url' | 'role'> | null;
+  replies?: CommentWithAuthor[];
+  mentions?: string[];
+}

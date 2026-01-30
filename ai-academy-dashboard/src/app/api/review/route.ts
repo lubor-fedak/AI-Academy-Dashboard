@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient } from '@/lib/supabase';
+import {
+  sendEmail,
+  getReviewNotificationEmail,
+  getAchievementNotificationEmail,
+} from '@/lib/email';
+import { ACHIEVEMENT_ICONS } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceSupabaseClient();
 
-    // Update submission with review
+    // Update submission with review and get participant + assignment info for email
     const { data: submission, error } = await supabase
       .from('submissions')
       .update({
@@ -34,7 +40,7 @@ export async function POST(request: NextRequest) {
         reviewed_at: new Date().toISOString(),
       })
       .eq('id', submission_id)
-      .select('participant_id')
+      .select('participant_id, assignment_id')
       .single();
 
     if (error) {
@@ -44,6 +50,20 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Get participant details for email
+    const { data: participant } = await supabase
+      .from('participants')
+      .select('name, email')
+      .eq('id', submission.participant_id)
+      .single();
+
+    // Get assignment details for email
+    const { data: assignment } = await supabase
+      .from('assignments')
+      .select('title, day')
+      .eq('id', submission.assignment_id)
+      .single();
 
     // Log activity
     await supabase.from('activity_log').insert({
@@ -55,29 +75,40 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Send review notification email
+    if (participant?.email && assignment) {
+      const emailContent = getReviewNotificationEmail({
+        participantName: participant.name,
+        assignmentTitle: `Day ${assignment.day}: ${assignment.title}`,
+        mentorRating: mentor_rating,
+        mentorNotes: mentor_notes,
+      });
+
+      // Send email asynchronously (don't block the response)
+      sendEmail({
+        to: participant.email,
+        subject: emailContent.subject,
+        html: emailContent.html,
+      }).catch((err) => console.error('Failed to send review email:', err));
+    }
+
     // Check for mentor_favorite achievement (5/5 rating)
     if (mentor_rating === 5) {
-      const { data: existingAchievement } = await supabase
-        .from('participant_achievements')
-        .select('id')
-        .eq('participant_id', submission.participant_id)
-        .eq('achievement_id', (
-          await supabase
-            .from('achievements')
-            .select('id')
-            .eq('code', 'mentor_favorite')
-            .single()
-        ).data?.id)
+      const { data: achievement } = await supabase
+        .from('achievements')
+        .select('id, name, description, icon, points_bonus')
+        .eq('code', 'mentor_favorite')
         .single();
 
-      if (!existingAchievement) {
-        const { data: achievement } = await supabase
-          .from('achievements')
+      if (achievement) {
+        const { data: existingAchievement } = await supabase
+          .from('participant_achievements')
           .select('id')
-          .eq('code', 'mentor_favorite')
+          .eq('participant_id', submission.participant_id)
+          .eq('achievement_id', achievement.id)
           .single();
 
-        if (achievement) {
+        if (!existingAchievement) {
           await supabase.from('participant_achievements').insert({
             participant_id: submission.participant_id,
             achievement_id: achievement.id,
@@ -88,6 +119,23 @@ export async function POST(request: NextRequest) {
             action: 'achievement',
             details: { achievement_code: 'mentor_favorite' },
           });
+
+          // Send achievement notification email
+          if (participant?.email) {
+            const achievementEmail = getAchievementNotificationEmail({
+              participantName: participant.name,
+              achievementName: achievement.name,
+              achievementDescription: achievement.description || undefined,
+              achievementIcon: ACHIEVEMENT_ICONS['mentor_favorite'] || '🌟',
+              bonusPoints: achievement.points_bonus,
+            });
+
+            sendEmail({
+              to: participant.email,
+              subject: achievementEmail.subject,
+              html: achievementEmail.html,
+            }).catch((err) => console.error('Failed to send achievement email:', err));
+          }
         }
       }
     }

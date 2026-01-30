@@ -4,7 +4,7 @@ import { createServiceSupabaseClient } from '@/lib/supabase';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { github_username, name, email, role, team, stream } = body;
+    const { github_username, name, email, role, team, stream, avatar_url } = body;
 
     // Validate required fields
     if (!github_username || !name || !email || !role || !team || !stream) {
@@ -30,16 +30,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch GitHub avatar
-    let avatarUrl = null;
-    try {
-      const ghResponse = await fetch(`https://api.github.com/users/${github_username}`);
-      if (ghResponse.ok) {
-        const ghData = await ghResponse.json();
-        avatarUrl = ghData.avatar_url;
+    // Use provided avatar_url or fetch from GitHub
+    let avatarUrl = avatar_url || null;
+    if (!avatarUrl) {
+      try {
+        const ghResponse = await fetch(`https://api.github.com/users/${github_username}`);
+        if (ghResponse.ok) {
+          const ghData = await ghResponse.json();
+          avatarUrl = ghData.avatar_url;
+        }
+      } catch {
+        // Ignore avatar fetch errors
       }
-    } catch {
-      // Ignore avatar fetch errors
     }
 
     // Insert participant

@@ -12,24 +12,27 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { AchievementBadge } from '@/components/AchievementBadge';
+import { MissingAssignments } from '@/components/MissingAssignments';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
-import { 
-  Github, 
-  Trophy, 
-  GitCommit, 
-  Star, 
+import {
+  Github,
+  Trophy,
+  GitCommit,
+  Star,
   Flame,
   ExternalLink,
-  ArrowLeft
+  ArrowLeft,
+  CheckCircle,
 } from 'lucide-react';
-import type { 
-  Participant, 
-  SubmissionWithDetails, 
-  Achievement, 
+import type {
+  Participant,
+  SubmissionWithDetails,
+  Achievement,
   ParticipantAchievement,
-  LeaderboardEntry 
+  LeaderboardEntry,
+  Assignment,
 } from '@/lib/types';
 
 export const revalidate = 0;
@@ -53,30 +56,38 @@ export default async function ParticipantPage({ params }: ParticipantPageProps) 
     notFound();
   }
 
-  // Fetch submissions with assignment details
-  const { data: submissions } = await supabase
-    .from('submissions')
-    .select('*, assignments(title, day, type)')
-    .eq('participant_id', participant.id)
-    .order('submitted_at', { ascending: false });
-
-  // Fetch achievements
-  const { data: achievements } = await supabase
-    .from('participant_achievements')
-    .select('*, achievements(*)')
-    .eq('participant_id', participant.id);
-
-  // Fetch leaderboard entry
-  const { data: leaderboardEntry } = await supabase
-    .from('leaderboard')
-    .select('*')
-    .eq('participant_id', participant.id)
-    .single();
+  // Fetch all data in parallel
+  const [submissionsResult, achievementsResult, leaderboardResult, assignmentsResult] = await Promise.all([
+    supabase
+      .from('submissions')
+      .select('*, assignments(title, day, type)')
+      .eq('participant_id', participant.id)
+      .order('submitted_at', { ascending: false }),
+    supabase
+      .from('participant_achievements')
+      .select('*, achievements(*)')
+      .eq('participant_id', participant.id),
+    supabase
+      .from('leaderboard')
+      .select('*')
+      .eq('participant_id', participant.id)
+      .single(),
+    supabase
+      .from('assignments')
+      .select('*')
+      .order('day')
+      .order('type'),
+  ]);
 
   const p = participant as Participant;
-  const subs = (submissions ?? []) as SubmissionWithDetails[];
-  const achievementData = (achievements ?? []) as (ParticipantAchievement & { achievements: Achievement })[];
-  const stats = leaderboardEntry as LeaderboardEntry | null;
+  const subs = (submissionsResult.data ?? []) as SubmissionWithDetails[];
+  const achievementData = (achievementsResult.data ?? []) as (ParticipantAchievement & { achievements: Achievement })[];
+  const stats = leaderboardResult.data as LeaderboardEntry | null;
+  const allAssignments = (assignmentsResult.data ?? []) as Assignment[];
+
+  // Calculate missing assignments
+  const submittedAssignmentIds = new Set(subs.map((s) => s.assignment_id));
+  const missingAssignments = allAssignments.filter((a) => !submittedAssignmentIds.has(a.id));
 
   return (
     <div className="space-y-6">
@@ -152,6 +163,30 @@ export default async function ParticipantPage({ params }: ParticipantPageProps) 
           </div>
         </CardContent>
       </Card>
+
+      {/* Missing Assignments Alert */}
+      {missingAssignments.length > 0 ? (
+        <MissingAssignments
+          assignments={missingAssignments}
+          repoUrl={p.repo_url}
+        />
+      ) : (
+        <Card className="border-green-500/50 bg-green-500/10">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="h-8 w-8 text-green-500" />
+              <div>
+                <p className="font-bold text-green-600 dark:text-green-400">
+                  Všetky úlohy odovzdané!
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {subs.length} z {allAssignments.length} úloh dokončených
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Submissions */}
