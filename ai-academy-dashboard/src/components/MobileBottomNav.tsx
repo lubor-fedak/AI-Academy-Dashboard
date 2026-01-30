@@ -15,14 +15,20 @@ import {
 const navItems = [
   { href: '/', label: 'Home', icon: LayoutDashboard },
   { href: '/leaderboard', label: 'Rank', icon: Trophy },
-  { href: '/my-dashboard', label: 'Môj', icon: User, requiresAuth: true },
+  { href: '/my-dashboard', label: 'Me', icon: User, requiresAuth: true },
   { href: '/progress', label: 'Matrix', icon: Grid3X3 },
   { href: '/analytics', label: 'Stats', icon: BarChart3 },
 ];
 
 export function MobileBottomNav() {
   const pathname = usePathname();
-  const { participant } = useAuth();
+  const { user, participant, isLoading } = useAuth();
+
+  // Hide for unauthenticated users on public pages
+  const isPublicPage = pathname === '/' || pathname === '/login';
+  if (!user && !isLoading && isPublicPage) {
+    return null;
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:hidden safe-area-bottom">
