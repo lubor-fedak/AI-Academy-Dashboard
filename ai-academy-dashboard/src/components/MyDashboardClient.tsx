@@ -465,8 +465,8 @@ export function MyDashboardClient({
                   <TableHeader>
                     <TableRow>
                       <TableHead>Assignment</TableHead>
-                      <TableHead>Typ</TableHead>
-                      <TableHead className="text-right">Body</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead className="text-right">Points</TableHead>
                       <TableHead className="text-right">Rating</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">When</TableHead>
@@ -606,7 +606,7 @@ export function MyDashboardClient({
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Rank</span>
                     <span className="font-medium">
-                      #{userLeaderboard.rank} z {leaderboard.length}
+                      #{userLeaderboard.rank} of {leaderboard.length}
                     </span>
                   </div>
                 </div>
