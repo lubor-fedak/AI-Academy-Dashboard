@@ -28,7 +28,7 @@ export function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center">
       <div className="flex flex-col items-center gap-8">
-        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#D31145]">
+        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#FF462D]">
           <span className="text-3xl font-bold text-white">AI</span>
         </div>
 
