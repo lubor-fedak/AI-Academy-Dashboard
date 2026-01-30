@@ -11,16 +11,13 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Separator } from '@/components/ui/separator';
 import {
   Github,
   Loader2,
   AlertCircle,
   CheckCircle,
-  Mail,
   ShieldCheck,
   KeyRound,
-  Sparkles,
 } from 'lucide-react';
 
 function LoginForm() {
@@ -28,11 +25,10 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
 
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, isAdmin, userStatus, signInWithEmail, signInWithMagicLink } = useAuth();
+  const { user, isAdmin, userStatus, signInWithEmail } = useAuth();
 
   const error = searchParams.get('error');
   const message = searchParams.get('message');
@@ -90,55 +86,6 @@ function LoginForm() {
     }
     // Success will be handled by auth state change
   };
-
-  const handleMagicLink = async () => {
-    if (!email) {
-      setLoginError('Please enter your email address');
-      return;
-    }
-
-    setIsLoading(true);
-    setLoginError(null);
-
-    const { error } = await signInWithMagicLink(email);
-
-    if (error) {
-      setLoginError(error.message);
-    } else {
-      setMagicLinkSent(true);
-    }
-    setIsLoading(false);
-  };
-
-  if (magicLinkSent) {
-    return (
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-green-500">
-              <Mail className="h-8 w-8 text-white" />
-            </div>
-          </div>
-          <CardTitle className="text-2xl">Check your email</CardTitle>
-          <CardDescription>
-            We sent a login link to <strong>{email}</strong>
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 text-center">
-          <p className="text-sm text-muted-foreground">
-            Click the link in the email to sign in. The link is valid for 1 hour.
-          </p>
-          <Button
-            variant="outline"
-            onClick={() => setMagicLinkSent(false)}
-            className="w-full"
-          >
-            Use a different email
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card className="w-full max-w-md">
@@ -253,34 +200,6 @@ function LoginForm() {
                 Sign In
               </Button>
             </form>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <Separator />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">or</span>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleMagicLink}
-              disabled={isLoading || !email}
-              className="w-full"
-            >
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
-              )}
-              Send magic link
-            </Button>
-
-            <p className="text-center text-xs text-muted-foreground">
-              Enter your email and click &quot;Send magic link&quot; to sign in without a password
-            </p>
           </TabsContent>
         </Tabs>
       </CardContent>
