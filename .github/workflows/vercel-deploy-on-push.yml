@@ -7,6 +7,7 @@ name: Vercel Deploy on Push
 on:
   push:
     branches: [main]
+  workflow_dispatch: {}   # allow manual run from Actions tab
 
 jobs:
   deploy:
@@ -14,6 +15,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Show trigger
+        run: |
+          echo "Triggered by: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          git log -1 --format="Commit: %h %s"
 
       # Vercel CLI checks HEAD commit author; it must be a team member.
       # Create a local empty commit with the team email so deploy succeeds (do not push).
