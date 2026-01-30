@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/components/Navigation";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
-import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { AuthProvider } from "@/components/AuthProvider";
 import { AuthGuard } from "@/components/AuthGuard";
 import { Toaster } from "@/components/ui/sonner";
@@ -21,27 +20,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AI Academy Dashboard",
   description: "AI Academy Dashboard - Progress Tracking & Leaderboard",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "AI Academy",
-  },
   icons: {
     icon: "/icons/icon.svg",
     shortcut: "/icons/icon.svg",
-    apple: "/icons/icon-192x192.svg",
-  },
-  other: {
-    "mobile-web-app-capable": "yes",
   },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#0062FF",
 };
 
@@ -62,7 +49,6 @@ export default function RootLayout({
               {children}
             </main>
             <MobileBottomNav />
-            <PWAInstallPrompt />
             <Toaster />
           </AuthGuard>
         </AuthProvider>
