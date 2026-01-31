@@ -7,33 +7,35 @@ const withPWA = withPWAInit({
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
   runtimeCaching: [
-    // Briefing content - cache for offline access
+    // Briefing content - network first to always get fresh content
     {
       urlPattern: /\/api\/content\/day\/\d+/i,
-      handler: "StaleWhileRevalidate",
+      handler: "NetworkFirst",
       options: {
         cacheName: "briefing-content",
         expiration: {
           maxEntries: 30,
-          maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+          maxAgeSeconds: 60 * 60, // 1 hour
         },
+        networkTimeoutSeconds: 10,
         cacheableResponse: {
-          statuses: [0, 200],
+          statuses: [200], // Only cache successful responses
         },
       },
     },
-    // Role-specific content
+    // Role-specific content - network first
     {
       urlPattern: /\/api\/content\/role\/[^/]+\/day\/\d+/i,
-      handler: "StaleWhileRevalidate",
+      handler: "NetworkFirst",
       options: {
         cacheName: "role-content",
         expiration: {
           maxEntries: 50,
-          maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+          maxAgeSeconds: 60 * 60, // 1 hour
         },
+        networkTimeoutSeconds: 10,
         cacheableResponse: {
-          statuses: [0, 200],
+          statuses: [200], // Only cache successful responses
         },
       },
     },
