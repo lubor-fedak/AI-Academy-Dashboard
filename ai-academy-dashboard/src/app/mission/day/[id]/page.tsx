@@ -23,6 +23,35 @@ export default async function MissionDayPage({ params }: PageProps) {
   const programStart = new Date('2026-02-02');
   const today = new Date();
 
+  // Get current user and check admin status first
+  const { data: { user } } = await supabase.auth.getUser();
+  let userRole: string | undefined;
+  let isAdmin = false;
+
+  if (user) {
+    // Check participants table
+    const { data: participant } = await supabase
+      .from('participants')
+      .select('role, is_admin')
+      .eq('email', user.email)
+      .single();
+
+    userRole = participant?.role ?? undefined;
+    isAdmin = participant?.is_admin ?? false;
+
+    // Also check admin_users table for email-authenticated admins
+    if (!isAdmin) {
+      const { data: adminUser } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      isAdmin = !!adminUser;
+    }
+  }
+
   // Fetch mission day
   const { data: missionDay, error } = await supabase
     .from('mission_days')
@@ -34,11 +63,11 @@ export default async function MissionDayPage({ params }: PageProps) {
     notFound();
   }
 
-  // Check if day is unlocked
-  if (missionDay.unlock_date) {
+  // Check if day is unlocked (skip for admins - they can see all content)
+  if (!isAdmin && missionDay.unlock_date) {
     const unlockDate = new Date(missionDay.unlock_date);
     if (today < unlockDate) {
-      // Day is locked
+      // Day is locked for non-admin users
       return (
         <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
           <div className="text-6xl">🔒</div>
@@ -54,19 +83,6 @@ export default async function MissionDayPage({ params }: PageProps) {
         </div>
       );
     }
-  }
-
-  // Get current user for role-specific content
-  const { data: { user } } = await supabase.auth.getUser();
-  let userRole: string | undefined;
-
-  if (user) {
-    const { data: participant } = await supabase
-      .from('participants')
-      .select('role')
-      .eq('email', user.email)
-      .single();
-    userRole = participant?.role ?? undefined;
   }
 
   // Fetch adjacent days for navigation
