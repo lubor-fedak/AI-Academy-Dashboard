@@ -77,22 +77,42 @@ export function DayBriefing({
   const isCurrentDay = missionDay.day === currentProgramDay;
   const isPastDay = missionDay.day < currentProgramDay;
 
-  // Fetch content from API
+  // Fetch content from API with timeout and cache busting
   useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
     async function fetchContent() {
       setIsLoading(true);
       setContentError(null);
 
       try {
-        const response = await fetch(`/api/content/day/${missionDay.day}`);
+        // Add cache-busting timestamp to prevent stale service worker cache
+        const cacheBuster = Date.now();
+        const response = await fetch(`/api/content/day/${missionDay.day}?_t=${cacheBuster}`, {
+          signal: controller.signal,
+          cache: 'no-store', // Bypass browser cache
+        });
+
         if (response.ok) {
           const data = await response.json();
-          setContent({
-            situation: data.situation,
-            resources: data.resources,
-            mentorNotes: data.mentorNotes,
-            source: data.source,
-          });
+          // Only set content if we got actual data
+          if (data.situation || data.resources) {
+            setContent({
+              situation: data.situation,
+              resources: data.resources,
+              mentorNotes: data.mentorNotes,
+              source: data.source,
+            });
+          } else {
+            // API returned empty - use database fallback
+            setContent({
+              situation: missionDay.briefing_content,
+              resources: missionDay.resources_content,
+              mentorNotes: null,
+              source: 'database',
+            });
+          }
         } else {
           // Use database content as fallback
           setContent({
@@ -102,7 +122,7 @@ export function DayBriefing({
             source: 'database',
           });
         }
-      } catch {
+      } catch (error) {
         // Use database content as fallback
         setContent({
           situation: missionDay.briefing_content,
@@ -110,13 +130,21 @@ export function DayBriefing({
           mentorNotes: null,
           source: 'database',
         });
-        setContentError('Using cached content');
+        if (error instanceof Error && error.name !== 'AbortError') {
+          setContentError('Using cached content');
+        }
       } finally {
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     }
 
     fetchContent();
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
   }, [missionDay.day, missionDay.briefing_content, missionDay.resources_content]);
 
   // Fetch role-specific content
