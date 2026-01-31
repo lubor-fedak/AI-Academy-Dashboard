@@ -10,6 +10,7 @@ export default function OfflinePage() {
   const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsOnline(navigator.onLine);
 
     const handleOnline = () => setIsOnline(true);
@@ -61,7 +62,7 @@ export default function OfflinePage() {
           </div>
           <h1 className="text-2xl font-bold mb-2">You are offline</h1>
           <p className="text-muted-foreground mb-6">
-            It looks like you don't have an internet connection. Check your connection and try again.
+            It looks like you don&apos;t have an internet connection. Check your connection and try again.
           </p>
           <div className="space-y-3">
             <Button

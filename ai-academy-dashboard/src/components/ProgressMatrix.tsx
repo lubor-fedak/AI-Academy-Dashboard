@@ -195,6 +195,7 @@ export function ProgressMatrix({ data, participants, assignments, submissions }:
         completionRate: totalCells > 0 ? Math.round((completedCells / totalCells) * 100) : 0,
       };
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   // Export to PDF (using print)

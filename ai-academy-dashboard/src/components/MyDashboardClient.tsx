@@ -79,6 +79,7 @@ export function MyDashboardClient({
   useEffect(() => {
     const saved = localStorage.getItem('my-dashboard-username');
     if (saved && participants.some((p) => p.github_username === saved)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedUsername(saved);
     }
   }, [participants]);

@@ -196,7 +196,7 @@ export function HomePage({
                 <GitCommit className="h-5 w-5 text-orange-500" />
                 <div>
                   <p className="font-medium">Peer Reviews</p>
-                  <p className="text-sm text-muted-foreground">Review your peers' work</p>
+                  <p className="text-sm text-muted-foreground">Review your peers&apos; work</p>
                 </div>
               </div>
               <ArrowRight className="h-4 w-4" />

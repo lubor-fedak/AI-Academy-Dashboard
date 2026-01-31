@@ -235,7 +235,7 @@ export function SubmissionComments({
 
   const renderMarkdown = (content: string) => {
     // Simple markdown rendering for bold, italic, code, and mentions
-    let html = content
+    const html = content
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
       .replace(/`(.+?)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-sm">$1</code>')

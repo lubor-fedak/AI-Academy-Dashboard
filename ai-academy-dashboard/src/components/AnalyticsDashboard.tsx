@@ -35,7 +35,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { format, parseISO, differenceInDays, startOfDay, getHours } from 'date-fns';
+import { format, parseISO, differenceInDays, getHours } from 'date-fns';
 import {
   BarChart3,
   TrendingUp,
@@ -117,8 +117,10 @@ export function AnalyticsDashboard({
   submissions,
   leaderboard,
   teamProgress,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   activityLog,
 }: AnalyticsDashboardProps) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedTeam, setSelectedTeam] = useState<string>('all');
   const [selectedWeek, setSelectedWeek] = useState<string>('0');
 

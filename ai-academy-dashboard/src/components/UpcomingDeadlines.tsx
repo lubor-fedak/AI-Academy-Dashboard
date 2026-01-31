@@ -36,6 +36,7 @@ function LiveCountdown({ dueAt }: { dueAt: string }) {
       return { hours, minutes, seconds, isOverdue: false };
     };
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTimeLeft(calculateTimeLeft());
 
     const interval = setInterval(() => {

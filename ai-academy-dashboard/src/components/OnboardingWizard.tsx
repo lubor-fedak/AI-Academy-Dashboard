@@ -590,7 +590,7 @@ export function OnboardingWizard({ initialStep = 'welcome', fromGitHub = false }
               </div>
 
               <div className="bg-gradient-to-r from-[#0062FF]/10 to-purple-500/10 rounded-lg p-6">
-                <h3 className="font-semibold mb-3">What's Next?</h3>
+                <h3 className="font-semibold mb-3">What&apos;s Next?</h3>
                 <ul className="text-sm text-muted-foreground space-y-2 text-left">
                   <li className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />

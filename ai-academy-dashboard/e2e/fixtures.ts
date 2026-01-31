@@ -48,6 +48,7 @@ export const test = base.extend<{ adminPage: Page }>({
     const context = await browser.newContext();
     const page = await context.newPage();
     await loginAsAdmin(page);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);
     await context.close();
   },
