@@ -242,3 +242,218 @@ export interface CommentWithAuthor extends Comment {
   replies?: CommentWithAuthor[];
   mentions?: string[];
 }
+
+// ============================================================================
+// OPERATION AI READY EUROPE - Mission System Types
+// ============================================================================
+
+export type ClearanceLevel = 'TRAINEE' | 'FIELD_TRAINEE' | 'FIELD_READY' | 'SPECIALIST';
+
+export type ClientUrgency = 'low' | 'medium' | 'high' | 'critical';
+
+export interface PilotClient {
+  id: number;
+  name: string;
+  codename: string | null;
+  sector: string;
+  country: string;
+  city: string;
+  employees: number | null;
+  situation: string | null;
+  pain_points: string[] | null;
+  ai_act_concern: string | null;
+  stakeholder_name: string | null;
+  stakeholder_title: string | null;
+  urgency: ClientUrgency | null;
+  icon: string | null;
+  color: string | null;
+  created_at: string;
+}
+
+export interface TaskForce {
+  id: number;
+  name: string;
+  display_name: string;
+  client_id: number | null;
+  starting_size: number;
+  current_size: number;
+  overall_readiness: number | null;
+  created_at: string;
+}
+
+export interface TaskForceMember {
+  id: string;
+  task_force_id: number;
+  participant_id: string;
+  is_team_lead: boolean;
+  joined_at: string;
+}
+
+export interface MissionDay {
+  id: number;
+  day: number;
+  week: number;
+  act: number;
+  title: string;
+  codename: string | null;
+  subtitle: string | null;
+  briefing_content: string | null;
+  resources_content: string | null;
+  tech_skills_focus: string[] | null;
+  target_roles: string[] | null;
+  unlock_date: string | null;
+  is_visible: boolean;
+  created_at: string;
+}
+
+export interface IntelDrop {
+  id: number;
+  day: number;
+  trigger_time: string | null;
+  title: string;
+  classification: string;
+  content: string;
+  affected_task_forces: string[] | null;
+  is_released: boolean;
+  released_at: string | null;
+  created_at: string;
+}
+
+export interface ParticipantMastery {
+  id: string;
+  participant_id: string;
+  clearance: ClearanceLevel;
+  mastery_level: number;
+  days_completed: number;
+  artifacts_submitted: number;
+  ai_tutor_sessions: number;
+  peer_assists_given: number;
+  week1_checkpoint_passed: boolean;
+  week2_checkpoint_passed: boolean;
+  week4_checkpoint_passed: boolean;
+  week5_checkpoint_passed: boolean;
+  updated_at: string;
+}
+
+export interface RecognitionType {
+  id: number;
+  code: string;
+  name: string;
+  icon: string;
+  description: string;
+  created_at: string;
+}
+
+export interface ParticipantRecognition {
+  id: string;
+  participant_id: string;
+  recognition_type_id: number;
+  context: string | null;
+  earned_at: string;
+}
+
+export interface LiveSession {
+  id: string;
+  instructor_id: string | null;
+  mission_day_id: number | null;
+  current_step: number;
+  current_section: string;
+  started_at: string;
+  ended_at: string | null;
+  is_active: boolean;
+  join_code: string | null;
+  created_at: string;
+}
+
+// View types for mission system
+export interface MissionProgressView {
+  participant_id: string;
+  github_username: string;
+  name: string;
+  role: RoleType;
+  task_force: string | null;
+  client_name: string | null;
+  clearance: ClearanceLevel | null;
+  mastery_level: number | null;
+  days_completed: number | null;
+  artifacts_submitted: number | null;
+  recognitions_earned: number;
+}
+
+export interface TaskForceReadinessView {
+  task_force_id: number;
+  task_force_name: string;
+  display_name: string;
+  client_name: string | null;
+  client_urgency: ClientUrgency | null;
+  member_count: number;
+  specialists: number;
+  field_ready: number;
+  field_trainees: number;
+  trainees: number;
+  overall_readiness_pct: number | null;
+}
+
+// Extended types with relations
+export interface TaskForceWithClient extends TaskForce {
+  pilot_clients: PilotClient | null;
+}
+
+export interface ParticipantWithMastery extends Participant {
+  participant_mastery: ParticipantMastery | null;
+  task_force_members: (TaskForceMember & { task_forces: TaskForce | null })[] | null;
+}
+
+export interface MissionDayWithProgress extends MissionDay {
+  is_completed: boolean;
+  is_current: boolean;
+  is_locked: boolean;
+}
+
+// ACT names
+export const ACT_NAMES: Record<number, string> = {
+  1: 'THE CALL TO ACTION',
+  2: 'SKILL BUILDING',
+  3: 'TEAM DEPLOYMENT',
+  4: 'FINAL PUSH',
+};
+
+// ACT week ranges
+export const ACT_WEEKS: Record<number, string> = {
+  1: 'Week 1',
+  2: 'Week 2',
+  3: 'Week 4',
+  4: 'Week 5',
+};
+
+// Clearance level colors
+export const CLEARANCE_COLORS: Record<ClearanceLevel, string> = {
+  'TRAINEE': 'bg-gray-500',
+  'FIELD_TRAINEE': 'bg-blue-500',
+  'FIELD_READY': 'bg-green-500',
+  'SPECIALIST': 'bg-amber-500',
+};
+
+// Clearance level labels
+export const CLEARANCE_LABELS: Record<ClearanceLevel, string> = {
+  'TRAINEE': 'Trainee',
+  'FIELD_TRAINEE': 'Field Trainee',
+  'FIELD_READY': 'Field Ready',
+  'SPECIALIST': 'Specialist',
+};
+
+// Task force colors
+export const TASK_FORCE_COLORS: Record<string, string> = {
+  'RHEIN': 'bg-blue-600',
+  'LYON': 'bg-purple-600',
+  'MILAN': 'bg-emerald-600',
+  'AMSTERDAM': 'bg-red-600',
+};
+
+// Urgency colors
+export const URGENCY_COLORS: Record<ClientUrgency, string> = {
+  'low': 'bg-gray-500',
+  'medium': 'bg-yellow-500',
+  'high': 'bg-orange-500',
+  'critical': 'bg-red-500',
+};

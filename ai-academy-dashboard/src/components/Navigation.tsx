@@ -38,6 +38,9 @@ import {
   BarChart3,
   Menu,
   UsersRound,
+  Target,
+  Zap,
+  Radio,
 } from 'lucide-react';
 import { CommandPalette } from '@/components/CommandPalette';
 
@@ -52,6 +55,9 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/mission', label: 'Mission', icon: Target, requiresAuth: true, requiresApproval: true },
+  { href: '/intel', label: 'Intel', icon: Zap, requiresAuth: true, requiresApproval: true },
+  { href: '/live-session', label: 'Live', icon: Radio, requiresAuth: true, requiresApproval: true },
   { href: '/my-dashboard', label: 'My Progress', icon: User, requiresAuth: true, requiresApproval: true },
   { href: '/peer-reviews', label: 'Peer Reviews', icon: UsersRound, requiresAuth: true, requiresApproval: true },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy, requiresAuth: true, requiresApproval: true },
