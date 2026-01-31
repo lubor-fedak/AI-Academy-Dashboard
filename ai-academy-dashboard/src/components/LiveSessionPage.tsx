@@ -17,7 +17,6 @@ import {
 import { MissionDay, LiveSession, ACT_NAMES } from '@/lib/types';
 import {
   Play,
-  Users,
   Radio,
   ArrowLeft,
   Copy,

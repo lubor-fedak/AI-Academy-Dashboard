@@ -64,7 +64,6 @@ export function MyProgressDashboard({
   const daysCompleted = completedDays.length;
   const totalDays = 25;
   const daysProgress = Math.round((daysCompleted / totalDays) * 100);
-  const masteryProgress = Math.round((masteryLevel / 4) * 100);
 
   // Group days by act
   const daysByAct = missionDays.reduce((acc, day) => {
