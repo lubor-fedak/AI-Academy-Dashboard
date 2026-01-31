@@ -23,11 +23,46 @@ interface ContentResponse {
   mentorNotes: string | null;
   source: 'local' | 'github' | 'database';
   cached: boolean;
+  phase: 'common' | 'role-specific' | 'team-project';
 }
+
+// Day folder mappings for Common Foundations (Days 1-3)
+const COMMON_FOUNDATION_FOLDERS: Record<number, string> = {
+  1: 'Day-01-AI-Landscape',
+  2: 'Day-02-Prompt-Engineering',
+  3: 'Day-03-Agentic-Patterns',
+};
+
+// Lab mappings for Team Project phase (Days 11-25)
+// Maps day number to lab folder
+const LAB_FOLDERS: Record<number, string> = {
+  11: 'Lab-01-First-Chatbot',
+  12: 'Lab-01-First-Chatbot',
+  13: 'Lab-02-RAG-Pipeline',
+  14: 'Lab-02-RAG-Pipeline',
+  15: 'Lab-03-Multi-Agent',
+  16: 'Lab-03-Multi-Agent',
+  17: 'Lab-04-Deployment',
+  18: 'Lab-04-Deployment',
+  19: 'Lab-05-Evaluation',
+  20: 'Lab-05-Evaluation',
+  21: 'Lab-06-Security',
+  22: 'Lab-06-Security',
+  23: 'Lab-07-Dashboard',
+  24: 'Lab-08-UI-Prototype',
+  25: 'Lab-08-UI-Prototype',
+};
 
 // Helper to format day number with leading zero
 function formatDay(day: number): string {
   return day.toString().padStart(2, '0');
+}
+
+// Get the week number for role-specific days (4-10)
+function getWeekForDay(day: number): number {
+  if (day >= 4 && day <= 5) return 1;
+  if (day >= 6 && day <= 10) return 2;
+  return 0;
 }
 
 // Try to read file from local filesystem
@@ -66,14 +101,60 @@ async function fetchFromGitHub(filePath: string): Promise<string | null> {
   }
 }
 
-// Get content from local filesystem
-async function getLocalContent(day: number, isAdmin: boolean): Promise<ContentResponse | null> {
-  const dayFolder = `Day-${formatDay(day)}`;
-  const basePath = path.join(LOCAL_CONTENT_PATH, '01-Common-Foundations', dayFolder);
+// Get content path based on day number
+function getContentPath(day: number): { basePath: string; phase: 'common' | 'role-specific' | 'team-project' } {
+  if (day >= 1 && day <= 3) {
+    // Common Foundations phase
+    const folder = COMMON_FOUNDATION_FOLDERS[day];
+    return {
+      basePath: path.join(LOCAL_CONTENT_PATH, '01-Common-Foundations', folder),
+      phase: 'common',
+    };
+  } else if (day >= 4 && day <= 10) {
+    // Role-specific phase - returns base path without role, role will be added by caller
+    return {
+      basePath: path.join(LOCAL_CONTENT_PATH, '02-Role-Tracks'),
+      phase: 'role-specific',
+    };
+  } else {
+    // Team project phase (Labs)
+    const labFolder = LAB_FOLDERS[day] || 'Lab-01-First-Chatbot';
+    return {
+      basePath: path.join(LOCAL_CONTENT_PATH, '03-Labs', labFolder),
+      phase: 'team-project',
+    };
+  }
+}
 
-  const situationPath = path.join(basePath, 'SITUATION.md');
-  const resourcesPath = path.join(basePath, 'RESOURCES.md');
-  const mentorPath = path.join(basePath, 'MENTOR-NOTES.md');
+// Get content from local filesystem
+async function getLocalContent(day: number, isAdmin: boolean, userRole?: string): Promise<ContentResponse | null> {
+  const { basePath, phase } = getContentPath(day);
+
+  let situationPath: string;
+  let resourcesPath: string;
+  let mentorPath: string;
+
+  if (phase === 'common') {
+    // Common Foundations: SITUATION.md, RESOURCES.md, MENTOR-NOTES.md
+    situationPath = path.join(basePath, 'SITUATION.md');
+    resourcesPath = path.join(basePath, 'RESOURCES.md');
+    mentorPath = path.join(basePath, 'MENTOR-NOTES.md');
+  } else if (phase === 'role-specific') {
+    // Role-specific: 02-Role-Tracks/{Role}/Week-XX/Day-XX/
+    const role = userRole || 'FDE'; // Default to FDE if no role specified
+    const week = getWeekForDay(day);
+    const dayFolder = `Day-${formatDay(day)}`;
+    const rolePath = path.join(basePath, role, `Week-${formatDay(week)}`, dayFolder);
+
+    situationPath = path.join(rolePath, 'SITUATION.md');
+    resourcesPath = path.join(rolePath, 'RESOURCES.md');
+    mentorPath = path.join(rolePath, 'MENTOR-NOTES.md');
+  } else {
+    // Team project (Labs): README.md, INSTRUCTIONS.md, MENTOR-NOTES.md
+    situationPath = path.join(basePath, 'README.md');
+    resourcesPath = path.join(basePath, 'INSTRUCTIONS.md');
+    mentorPath = path.join(basePath, 'MENTOR-NOTES.md');
+  }
 
   const situation = await readLocalFile(situationPath);
   const resources = await readLocalFile(resourcesPath);
@@ -88,20 +169,56 @@ async function getLocalContent(day: number, isAdmin: boolean): Promise<ContentRe
       mentorNotes,
       source: 'local',
       cached: false,
+      phase,
     };
   }
 
   return null;
 }
 
-// Get content from GitHub API
-async function getGitHubContent(day: number, isAdmin: boolean): Promise<ContentResponse | null> {
-  const dayFolder = `Day-${formatDay(day)}`;
-  const basePath = `01-Common-Foundations/${dayFolder}`;
+// Get GitHub content path based on day number
+function getGitHubContentPath(day: number, userRole?: string): { basePath: string; phase: 'common' | 'role-specific' | 'team-project'; situationFile: string; resourcesFile: string; mentorFile: string } {
+  if (day >= 1 && day <= 3) {
+    const folder = COMMON_FOUNDATION_FOLDERS[day];
+    const basePath = `01-Common-Foundations/${folder}`;
+    return {
+      basePath,
+      phase: 'common',
+      situationFile: 'SITUATION.md',
+      resourcesFile: 'RESOURCES.md',
+      mentorFile: 'MENTOR-NOTES.md',
+    };
+  } else if (day >= 4 && day <= 10) {
+    const role = userRole || 'FDE';
+    const week = getWeekForDay(day);
+    const basePath = `02-Role-Tracks/${role}/Week-${formatDay(week)}/Day-${formatDay(day)}`;
+    return {
+      basePath,
+      phase: 'role-specific',
+      situationFile: 'SITUATION.md',
+      resourcesFile: 'RESOURCES.md',
+      mentorFile: 'MENTOR-NOTES.md',
+    };
+  } else {
+    const labFolder = LAB_FOLDERS[day] || 'Lab-01-First-Chatbot';
+    const basePath = `03-Labs/${labFolder}`;
+    return {
+      basePath,
+      phase: 'team-project',
+      situationFile: 'README.md',
+      resourcesFile: 'INSTRUCTIONS.md',
+      mentorFile: 'MENTOR-NOTES.md',
+    };
+  }
+}
 
-  const situation = await fetchFromGitHub(`${basePath}/SITUATION.md`);
-  const resources = await fetchFromGitHub(`${basePath}/RESOURCES.md`);
-  const mentorNotes = isAdmin ? await fetchFromGitHub(`${basePath}/MENTOR-NOTES.md`) : null;
+// Get content from GitHub API
+async function getGitHubContent(day: number, isAdmin: boolean, userRole?: string): Promise<ContentResponse | null> {
+  const { basePath, phase, situationFile, resourcesFile, mentorFile } = getGitHubContentPath(day, userRole);
+
+  const situation = await fetchFromGitHub(`${basePath}/${situationFile}`);
+  const resources = await fetchFromGitHub(`${basePath}/${resourcesFile}`);
+  const mentorNotes = isAdmin ? await fetchFromGitHub(`${basePath}/${mentorFile}`) : null;
 
   // Only return if at least situation file exists
   if (situation) {
@@ -112,10 +229,18 @@ async function getGitHubContent(day: number, isAdmin: boolean): Promise<ContentR
       mentorNotes,
       source: 'github',
       cached: false,
+      phase,
     };
   }
 
   return null;
+}
+
+// Determine phase from day number
+function getPhaseForDay(day: number): 'common' | 'role-specific' | 'team-project' {
+  if (day >= 1 && day <= 3) return 'common';
+  if (day >= 4 && day <= 10) return 'role-specific';
+  return 'team-project';
 }
 
 // Get content from database as fallback
@@ -139,6 +264,7 @@ async function getDatabaseContent(day: number): Promise<ContentResponse | null> 
       mentorNotes: null,
       source: 'database',
       cached: false,
+      phase: getPhaseForDay(day),
     };
   } catch {
     return null;
@@ -159,22 +285,25 @@ export async function GET(
     );
   }
 
-  // Check if user is admin/instructor
+  // Check if user is admin/instructor and get their role
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   let isAdmin = false;
+  let userRole: string | undefined;
+
   if (user) {
     const { data: participant } = await supabase
       .from('participants')
-      .select('is_admin')
+      .select('is_admin, role')
       .eq('email', user.email)
       .single();
     isAdmin = participant?.is_admin ?? false;
+    userRole = participant?.role ?? undefined;
   }
 
-  // Check cache first
-  const cacheKey = `day-${day}-admin-${isAdmin}`;
+  // Check cache first (include role in cache key for role-specific days)
+  const cacheKey = `day-${day}-admin-${isAdmin}-role-${userRole || 'none'}`;
   const cached = contentCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return NextResponse.json({ ...cached.data, cached: true });
@@ -184,11 +313,11 @@ export async function GET(
   let content: ContentResponse | null = null;
 
   // 1. Try local filesystem (development)
-  content = await getLocalContent(day, isAdmin);
+  content = await getLocalContent(day, isAdmin, userRole);
 
   // 2. Try GitHub API
   if (!content) {
-    content = await getGitHubContent(day, isAdmin);
+    content = await getGitHubContent(day, isAdmin, userRole);
   }
 
   // 3. Fallback to database

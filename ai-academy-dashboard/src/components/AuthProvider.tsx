@@ -11,6 +11,9 @@ interface AuthContextType {
   participant: Participant | null;
   isLoading: boolean;
   isAdmin: boolean;
+  isActualAdmin: boolean; // True admin status (not affected by viewAsUser)
+  viewAsUser: boolean;
+  setViewAsUser: (value: boolean) => void;
   userStatus: UserStatus | 'no_profile' | null;
   signOut: () => Promise<void>;
   refreshParticipant: () => Promise<void>;
@@ -24,6 +27,9 @@ const AuthContext = createContext<AuthContextType>({
   participant: null,
   isLoading: true,
   isAdmin: false,
+  isActualAdmin: false,
+  viewAsUser: false,
+  setViewAsUser: () => {},
   userStatus: null,
   signOut: async () => {},
   refreshParticipant: async () => {},
@@ -36,8 +42,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [participant, setParticipant] = useState<Participant | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isActualAdmin, setIsActualAdmin] = useState(false);
+  const [viewAsUser, setViewAsUser] = useState(false);
   const [userStatus, setUserStatus] = useState<UserStatus | 'no_profile' | null>(null);
+
+  // isAdmin returns false if admin is viewing as user
+  const isAdmin = isActualAdmin && !viewAsUser;
 
   const supabase = getSupabaseClient();
 
@@ -51,11 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data) {
       setParticipant(data as Participant);
       setUserStatus((data as Participant).status || 'pending');
-      setIsAdmin((data as Participant).is_admin || false);
+      setIsActualAdmin((data as Participant).is_admin || false);
     } else {
       setParticipant(null);
       setUserStatus('no_profile');
-      setIsAdmin(false);
+      setIsActualAdmin(false);
     }
   };
 
@@ -69,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .single();
 
     if (data) {
-      setIsAdmin(true);
+      setIsActualAdmin(true);
       setUserStatus('approved');
       return true;
     }
@@ -125,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         } else {
           setParticipant(null);
-          setIsAdmin(false);
+          setIsActualAdmin(false);
           setUserStatus(null);
         }
 
@@ -144,7 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setSession(null);
     setParticipant(null);
-    setIsAdmin(false);
+    setIsActualAdmin(false);
     setUserStatus(null);
   };
 
@@ -174,6 +184,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         participant,
         isLoading,
         isAdmin,
+        isActualAdmin,
+        viewAsUser,
+        setViewAsUser,
         userStatus,
         signOut,
         refreshParticipant,

@@ -41,7 +41,10 @@ import {
   Target,
   Zap,
   Radio,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { CommandPalette } from '@/components/CommandPalette';
 import { IntelDropNotification, useUnreadIntelCount, IntelBadge } from '@/components/IntelDropNotification';
 
@@ -71,7 +74,7 @@ const navItems: NavItem[] = [
 
 export function Navigation() {
   const pathname = usePathname();
-  const { user, participant, isLoading, isAdmin, userStatus, signOut } = useAuth();
+  const { user, participant, isLoading, isAdmin, isActualAdmin, viewAsUser, setViewAsUser, userStatus, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const unreadIntelCount = useUnreadIntelCount();
 
@@ -102,7 +105,31 @@ export function Navigation() {
   });
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+    <>
+      {/* View as User Banner */}
+      {isActualAdmin && viewAsUser && (
+        <div className="sticky top-0 z-[60] bg-orange-500 text-white px-4 py-2">
+          <div className="container mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                Viewing as regular user - Admin features are hidden
+              </span>
+            </div>
+            <button
+              onClick={() => setViewAsUser(false)}
+              className="flex items-center gap-1 text-sm font-medium hover:underline"
+            >
+              <EyeOff className="h-4 w-4" />
+              Exit User View
+            </button>
+          </div>
+        </div>
+      )}
+      <nav className={cn(
+        "sticky z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60",
+        isActualAdmin && viewAsUser ? "top-[40px]" : "top-0"
+      )}>
       <div className="container mx-auto px-4">
         <div className="flex h-14 sm:h-16 items-center justify-between">
           {/* Logo */}
@@ -220,24 +247,44 @@ export function Navigation() {
                         </Link>
                       </DropdownMenuItem>
                     )}
-                    {isAdmin && (
+                    {isActualAdmin && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuLabel className="text-xs text-orange-500">
                           Admin
                         </DropdownMenuLabel>
-                        <DropdownMenuItem asChild>
-                          <Link href="/admin/users" className="cursor-pointer">
-                            <Users className="mr-2 h-4 w-4" />
-                            User Management
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href="/admin" className="cursor-pointer">
-                            <ShieldCheck className="mr-2 h-4 w-4" />
-                            Submissions
-                          </Link>
-                        </DropdownMenuItem>
+                        {/* View as User Toggle */}
+                        <div className="flex items-center justify-between px-2 py-2">
+                          <div className="flex items-center gap-2">
+                            {viewAsUser ? (
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span className="text-sm">View as User</span>
+                          </div>
+                          <Switch
+                            checked={viewAsUser}
+                            onCheckedChange={setViewAsUser}
+                            className="data-[state=checked]:bg-orange-500"
+                          />
+                        </div>
+                        {!viewAsUser && (
+                          <>
+                            <DropdownMenuItem asChild>
+                              <Link href="/admin/users" className="cursor-pointer">
+                                <Users className="mr-2 h-4 w-4" />
+                                User Management
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href="/admin" className="cursor-pointer">
+                                <ShieldCheck className="mr-2 h-4 w-4" />
+                                Submissions
+                              </Link>
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </>
                     )}
                     <DropdownMenuSeparator />
@@ -413,5 +460,6 @@ export function Navigation() {
       {/* Intel Drop Notification Listener */}
       {user && <IntelDropNotification />}
     </nav>
+    </>
   );
 }
