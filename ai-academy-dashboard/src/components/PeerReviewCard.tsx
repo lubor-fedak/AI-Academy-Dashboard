@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -80,7 +80,7 @@ export function PeerReviewCard({
       toast.success(`Review submitted! +${data.bonus_points_earned} bonus points`);
       setIsViewOpen(false);
       onComplete();
-    } catch (error) {
+    } catch {
       toast.error('Failed to submit review');
     } finally {
       setIsSubmitting(false);
@@ -107,7 +107,7 @@ export function PeerReviewCard({
       toast.info('Review skipped');
       setIsViewOpen(false);
       onComplete();
-    } catch (error) {
+    } catch {
       toast.error('Failed to skip review');
     } finally {
       setIsSubmitting(false);

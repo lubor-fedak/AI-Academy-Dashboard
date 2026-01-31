@@ -21,8 +21,6 @@ import { useLiveSession, useInstructorSession } from '@/hooks/useLiveSession';
 import { useLiveSessionPresence } from '@/hooks/usePresence';
 import type { LiveSession, MissionDay } from '@/lib/types';
 import {
-  Play,
-  Pause,
   SkipBack,
   SkipForward,
   Users,

@@ -1,4 +1,4 @@
-name: E2E Tests
+name: CI/CD Pipeline
 
 on:
   push:
@@ -7,9 +7,13 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    timeout-minutes: 20
+  # ============================================================================
+  # Code Quality Checks
+  # ============================================================================
+  quality:
+    name: Code Quality
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -23,8 +27,36 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Security audit
+        run: npm audit --production --audit-level=high
+        continue-on-error: true
+
+  # ============================================================================
+  # Build Check
+  # ============================================================================
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: quality
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build application
         run: npm run build
@@ -32,6 +64,43 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-build
+          path: .next
+          retention-days: 1
+
+  # ============================================================================
+  # E2E Tests
+  # ============================================================================
+  test:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nextjs-build
+          path: .next
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
 
       - name: Run Playwright tests
         run: npm run test:ci
@@ -55,3 +124,38 @@ jobs:
           name: test-results
           path: test-results/
           retention-days: 7
+
+  # ============================================================================
+  # Security Scanning
+  # ============================================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: quality
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for vulnerable dependencies
+        run: |
+          echo "## Dependency Security Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          npm audit --production 2>&1 | head -50 >> $GITHUB_STEP_SUMMARY || true
+
+      - name: Check for secrets in code
+        run: |
+          # Basic check for potential secrets (can be expanded with tools like gitleaks)
+          if grep -rE "(password|secret|api[_-]?key)\s*[:=]\s*['\"][^'\"]+['\"]" --include="*.ts" --include="*.tsx" --include="*.js" --exclude-dir=node_modules src/ 2>/dev/null; then
+            echo "::warning::Potential hardcoded secrets found. Please review."
+          fi
+        continue-on-error: true

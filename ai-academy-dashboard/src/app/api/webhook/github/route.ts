@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
       readmeContent = await readmeResponse.text();
       selfRating = parseSelfRating(readmeContent);
     }
-  } catch (e) {
+  } catch {
     console.log('Could not fetch README');
   }
 

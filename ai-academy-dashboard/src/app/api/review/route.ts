@@ -6,27 +6,40 @@ import {
   getAchievementNotificationEmail,
 } from '@/lib/email';
 import { ACHIEVEMENT_ICONS } from '@/lib/types';
+import { requireAdminOrMentor, getCorrelationId } from '@/lib/api-auth';
+import { reviewSchema, validateInput, formatValidationErrors } from '@/lib/validation';
+import { logger, logApiRequest } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  const correlationId = getCorrelationId(request);
+
   try {
+    // Authentication check
+    const authResult = await requireAdminOrMentor(request);
+    if (!authResult.authenticated) {
+      logApiRequest('POST', '/api/review', 401, Date.now() - startTime, { correlationId });
+      return authResult.response;
+    }
+
     const body = await request.json();
-    const { submission_id, mentor_rating, mentor_notes } = body;
 
-    // Validate required fields
-    if (!submission_id || !mentor_rating) {
+    // Validate input with Zod
+    const validation = validateInput(reviewSchema, body);
+    if (!validation.success) {
+      logger.warn('Review validation failed', {
+        correlationId,
+        errors: validation.errors,
+        userId: authResult.user.id,
+      });
+      logApiRequest('POST', '/api/review', 400, Date.now() - startTime, { correlationId });
       return NextResponse.json(
-        { error: 'submission_id and mentor_rating are required' },
+        { error: 'Validation failed', details: formatValidationErrors(validation.errors) },
         { status: 400 }
       );
     }
 
-    // Validate rating range
-    if (mentor_rating < 1 || mentor_rating > 5) {
-      return NextResponse.json(
-        { error: 'Rating must be between 1 and 5' },
-        { status: 400 }
-      );
-    }
+    const { submission_id, mentor_rating, mentor_notes } = validation.data;
 
     const supabase = createServiceSupabaseClient();
 
@@ -44,7 +57,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Review error:', error);
+      logger.error('Failed to save review', { correlationId, submission_id }, error as Error);
+      logApiRequest('POST', '/api/review', 500, Date.now() - startTime, { correlationId });
       return NextResponse.json(
         { error: 'Failed to save review' },
         { status: 500 }
@@ -72,7 +86,15 @@ export async function POST(request: NextRequest) {
       details: {
         submission_id,
         mentor_rating,
+        reviewed_by: authResult.user.id,
       },
+    });
+
+    logger.info('Review submitted', {
+      correlationId,
+      submission_id,
+      mentor_rating,
+      reviewedBy: authResult.user.id,
     });
 
     // Send review notification email
@@ -81,7 +103,7 @@ export async function POST(request: NextRequest) {
         participantName: participant.name,
         assignmentTitle: `Day ${assignment.day}: ${assignment.title}`,
         mentorRating: mentor_rating,
-        mentorNotes: mentor_notes,
+        mentorNotes: mentor_notes || undefined,
       });
 
       // Send email asynchronously (don't block the response)
@@ -89,7 +111,7 @@ export async function POST(request: NextRequest) {
         to: participant.email,
         subject: emailContent.subject,
         html: emailContent.html,
-      }).catch((err) => console.error('Failed to send review email:', err));
+      }).catch((err) => logger.error('Failed to send review email', { correlationId }, err as Error));
     }
 
     // Check for mentor_favorite achievement (5/5 rating)
@@ -120,6 +142,12 @@ export async function POST(request: NextRequest) {
             details: { achievement_code: 'mentor_favorite' },
           });
 
+          logger.info('Achievement awarded', {
+            correlationId,
+            participantId: submission.participant_id,
+            achievement: 'mentor_favorite',
+          });
+
           // Send achievement notification email
           if (participant?.email) {
             const achievementEmail = getAchievementNotificationEmail({
@@ -134,17 +162,19 @@ export async function POST(request: NextRequest) {
               to: participant.email,
               subject: achievementEmail.subject,
               html: achievementEmail.html,
-            }).catch((err) => console.error('Failed to send achievement email:', err));
+            }).catch((err) => logger.error('Failed to send achievement email', { correlationId }, err as Error));
           }
         }
       }
     }
 
+    logApiRequest('POST', '/api/review', 200, Date.now() - startTime, { correlationId });
     return NextResponse.json({
       success: true,
     });
   } catch (error) {
-    console.error('Review error:', error);
+    logger.error('Review error', { correlationId }, error as Error);
+    logApiRequest('POST', '/api/review', 500, Date.now() - startTime, { correlationId });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

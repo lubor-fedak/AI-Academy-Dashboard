@@ -103,7 +103,7 @@ export default function AdminUsersPage() {
 
       setSelectedUser(null);
       setActionType(null);
-    } catch (error) {
+    } catch {
       toast.error('Failed to change user status');
     } finally {
       setIsSubmitting(false);

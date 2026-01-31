@@ -6,43 +6,40 @@ import {
   getAchievementNotificationEmail,
 } from '@/lib/email';
 import { ACHIEVEMENT_ICONS } from '@/lib/types';
-import type { SubmissionStatus } from '@/lib/types';
-
-interface BulkReviewRequest {
-  submission_ids: string[];
-  mentor_rating?: number;
-  mentor_notes?: string;
-  status?: SubmissionStatus;
-}
+import { requireAdminOrMentor, getCorrelationId } from '@/lib/api-auth';
+import { bulkReviewSchema, validateInput, formatValidationErrors } from '@/lib/validation';
+import { logger, logApiRequest } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  const correlationId = getCorrelationId(request);
+
   try {
-    const body: BulkReviewRequest = await request.json();
-    const { submission_ids, mentor_rating, mentor_notes, status } = body;
+    // Authentication check
+    const authResult = await requireAdminOrMentor(request);
+    if (!authResult.authenticated) {
+      logApiRequest('POST', '/api/bulk-review', 401, Date.now() - startTime, { correlationId });
+      return authResult.response;
+    }
 
-    // Validate required fields
-    if (!submission_ids || !Array.isArray(submission_ids) || submission_ids.length === 0) {
+    const body = await request.json();
+
+    // Validate input with Zod
+    const validation = validateInput(bulkReviewSchema, body);
+    if (!validation.success) {
+      logger.warn('Bulk review validation failed', {
+        correlationId,
+        errors: validation.errors,
+        userId: authResult.user.id,
+      });
+      logApiRequest('POST', '/api/bulk-review', 400, Date.now() - startTime, { correlationId });
       return NextResponse.json(
-        { error: 'submission_ids array is required' },
+        { error: 'Validation failed', details: formatValidationErrors(validation.errors) },
         { status: 400 }
       );
     }
 
-    // Must have at least rating or status
-    if (!mentor_rating && !status) {
-      return NextResponse.json(
-        { error: 'Either mentor_rating or status is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate rating range if provided
-    if (mentor_rating && (mentor_rating < 1 || mentor_rating > 5)) {
-      return NextResponse.json(
-        { error: 'Rating must be between 1 and 5' },
-        { status: 400 }
-      );
-    }
+    const { submission_ids, mentor_rating, mentor_notes, status } = validation.data;
 
     const supabase = createServiceSupabaseClient();
 
@@ -72,7 +69,8 @@ export async function POST(request: NextRequest) {
       .select('id, participant_id, assignment_id');
 
     if (error) {
-      console.error('Bulk review error:', error);
+      logger.error('Failed to save bulk review', { correlationId }, error as Error);
+      logApiRequest('POST', '/api/bulk-review', 500, Date.now() - startTime, { correlationId });
       return NextResponse.json(
         { error: 'Failed to save bulk review' },
         { status: 500 }
@@ -106,10 +104,19 @@ export async function POST(request: NextRequest) {
           submission_id: sub.id,
           mentor_rating,
           status,
+          reviewed_by: authResult.user.id,
         },
       }));
 
       await supabase.from('activity_log').insert(activityLogs);
+
+      logger.info('Bulk review submitted', {
+        correlationId,
+        submissionCount: submissions.length,
+        mentor_rating,
+        status,
+        reviewedBy: authResult.user.id,
+      });
 
       // Send email notifications for each submission (if rating was given)
       if (mentor_rating) {
@@ -122,7 +129,7 @@ export async function POST(request: NextRequest) {
               participantName: participant.name,
               assignmentTitle: `Day ${assignment.day}: ${assignment.title}`,
               mentorRating: mentor_rating,
-              mentorNotes: mentor_notes,
+              mentorNotes: mentor_notes || undefined,
             });
 
             // Send asynchronously
@@ -130,7 +137,7 @@ export async function POST(request: NextRequest) {
               to: participant.email,
               subject: emailContent.subject,
               html: emailContent.html,
-            }).catch((err) => console.error('Failed to send bulk review email:', err));
+            }).catch((err) => logger.error('Failed to send bulk review email', { correlationId }, err as Error));
           }
         }
       }
@@ -164,6 +171,12 @@ export async function POST(request: NextRequest) {
                 details: { achievement_code: 'mentor_favorite' },
               });
 
+              logger.info('Achievement awarded (bulk)', {
+                correlationId,
+                participantId,
+                achievement: 'mentor_favorite',
+              });
+
               // Send achievement notification email
               const participant = participantMap.get(participantId);
               if (participant?.email) {
@@ -179,7 +192,7 @@ export async function POST(request: NextRequest) {
                   to: participant.email,
                   subject: achievementEmail.subject,
                   html: achievementEmail.html,
-                }).catch((err) => console.error('Failed to send achievement email:', err));
+                }).catch((err) => logger.error('Failed to send achievement email', { correlationId }, err as Error));
               }
             }
           }
@@ -187,12 +200,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    logApiRequest('POST', '/api/bulk-review', 200, Date.now() - startTime, { correlationId });
     return NextResponse.json({
       success: true,
       updated_count: submissions?.length || 0,
     });
   } catch (error) {
-    console.error('Bulk review error:', error);
+    logger.error('Bulk review error', { correlationId }, error as Error);
+    logApiRequest('POST', '/api/bulk-review', 500, Date.now() - startTime, { correlationId });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

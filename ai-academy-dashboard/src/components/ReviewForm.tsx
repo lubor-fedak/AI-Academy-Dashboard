@@ -75,7 +75,7 @@ export function ReviewForm({
       setRating('');
       setNotes('');
       onReviewComplete();
-    } catch (error) {
+    } catch {
       toast.error('Failed to submit review');
     } finally {
       setIsSubmitting(false);

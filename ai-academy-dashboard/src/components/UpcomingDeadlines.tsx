@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { differenceInHours, differenceInMinutes, differenceInSeconds } from 'date-fns';
+import { differenceInHours, differenceInSeconds } from 'date-fns';
 import { Clock, AlertTriangle, CheckCircle } from 'lucide-react';
 import type { Assignment } from '@/lib/types';
 

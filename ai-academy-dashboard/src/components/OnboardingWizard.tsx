@@ -101,7 +101,6 @@ export function OnboardingWizard({ initialStep = 'welcome', fromGitHub = false }
   }, [authLoading, user, participant, fromGitHub, router]);
 
   const currentStepIndex = STEPS.indexOf(currentStep);
-  const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
 
   const goNext = () => {
     const nextIndex = currentStepIndex + 1;

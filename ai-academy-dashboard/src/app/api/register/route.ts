@@ -1,18 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient } from '@/lib/supabase';
+import { registerSchema, validateInput, formatValidationErrors } from '@/lib/validation';
+import { logger, logApiRequest } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  const correlationId = request.headers.get('x-correlation-id') || undefined;
+
   try {
     const body = await request.json();
-    const { github_username, name, email, role, team, stream, avatar_url } = body;
 
-    // Validate required fields
-    if (!github_username || !name || !email || !role || !team || !stream) {
+    // Validate input with Zod
+    const validation = validateInput(registerSchema, body);
+    if (!validation.success) {
+      logger.warn('Registration validation failed', {
+        correlationId,
+        errors: validation.errors,
+      });
+      logApiRequest('POST', '/api/register', 400, Date.now() - startTime, { correlationId });
       return NextResponse.json(
-        { error: 'All fields are required' },
+        { error: 'Validation failed', details: formatValidationErrors(validation.errors) },
         { status: 400 }
       );
     }
+
+    const { github_username, name, email, role, team, stream, avatar_url } = validation.data;
 
     const supabase = createServiceSupabaseClient();
 
@@ -24,6 +36,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existing) {
+      logger.info('Registration attempt with existing credentials', {
+        correlationId,
+        github_username,
+        email,
+      });
+      logApiRequest('POST', '/api/register', 409, Date.now() - startTime, { correlationId });
       return NextResponse.json(
         { error: 'Username or email already registered' },
         { status: 409 }
@@ -61,7 +79,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Registration error:', error);
+      logger.error('Registration failed', { correlationId, github_username }, error as Error);
+      logApiRequest('POST', '/api/register', 500, Date.now() - startTime, { correlationId });
       return NextResponse.json(
         { error: 'Registration failed' },
         { status: 500 }
@@ -78,12 +97,33 @@ export async function POST(request: NextRequest) {
       rank: null,
     });
 
+    // Initialize participant mastery
+    await supabase.from('participant_mastery').insert({
+      participant_id: participant.id,
+      mastery_level: 1,
+      clearance: 'RECRUIT',
+      days_completed: 0,
+      artifacts_submitted: 0,
+      ai_tutor_sessions: 0,
+      peer_assists_given: 0,
+    });
+
+    logger.info('New participant registered', {
+      correlationId,
+      participantId: participant.id,
+      github_username,
+      role,
+      team,
+    });
+
+    logApiRequest('POST', '/api/register', 200, Date.now() - startTime, { correlationId });
     return NextResponse.json({
       success: true,
       participant_id: participant.id,
     });
   } catch (error) {
-    console.error('Registration error:', error);
+    logger.error('Registration error', { correlationId }, error as Error);
+    logApiRequest('POST', '/api/register', 500, Date.now() - startTime, { correlationId });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
