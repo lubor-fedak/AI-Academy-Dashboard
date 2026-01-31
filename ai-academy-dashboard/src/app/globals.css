@@ -177,3 +177,367 @@ html, body {
 
 /* Custom xs breakpoint */
 @custom-media --xs (min-width: 475px);
+
+/* ============================================
+   PRESENTATION-READY MARKDOWN STYLES
+   ============================================ */
+
+/* Base prose container */
+.prose {
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-links: oklch(0.6 0.2 250);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-quotes: var(--muted-foreground);
+  --tw-prose-quote-borders: oklch(0.6 0.2 250);
+  font-size: 1.1rem;
+  line-height: 1.8;
+}
+
+.dark .prose {
+  --tw-prose-body: oklch(0.9 0 0);
+  --tw-prose-headings: oklch(1 0 0);
+  --tw-prose-links: oklch(0.7 0.15 250);
+  --tw-prose-bold: oklch(1 0 0);
+  --tw-prose-code: oklch(0.95 0.05 250);
+  --tw-prose-quotes: oklch(0.75 0 0);
+  --tw-prose-quote-borders: oklch(0.6 0.2 250);
+}
+
+/* Headings with visual hierarchy */
+.prose h1 {
+  font-size: 2.25rem;
+  font-weight: 800;
+  margin-top: 2.5rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 3px solid oklch(0.6 0.2 250);
+  letter-spacing: -0.02em;
+}
+
+.prose h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid oklch(0.6 0.15 250 / 50%);
+  color: oklch(0.7 0.15 250);
+}
+
+.dark .prose h2 {
+  color: oklch(0.8 0.12 250);
+}
+
+.prose h3 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  color: oklch(0.5 0.1 250);
+}
+
+.dark .prose h3 {
+  color: oklch(0.75 0.1 250);
+}
+
+.prose h4 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Beautiful tables */
+.prose table {
+  width: 100%;
+  margin: 1.5rem 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.dark .prose table {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+}
+
+.prose thead {
+  background: linear-gradient(135deg, oklch(0.5 0.15 250) 0%, oklch(0.45 0.18 270) 100%);
+}
+
+.prose thead th {
+  padding: 1rem 1.25rem;
+  font-weight: 700;
+  text-align: left;
+  color: white;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: none;
+}
+
+.prose tbody tr {
+  background: oklch(0.98 0 0);
+  transition: background-color 0.15s ease;
+}
+
+.dark .prose tbody tr {
+  background: oklch(0.2 0 0);
+}
+
+.prose tbody tr:nth-child(even) {
+  background: oklch(0.96 0 0);
+}
+
+.dark .prose tbody tr:nth-child(even) {
+  background: oklch(0.25 0 0);
+}
+
+.prose tbody tr:hover {
+  background: oklch(0.94 0.02 250);
+}
+
+.dark .prose tbody tr:hover {
+  background: oklch(0.3 0.02 250);
+}
+
+.prose tbody td {
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid oklch(0.9 0 0);
+  font-size: 1rem;
+}
+
+.dark .prose tbody td {
+  border-bottom-color: oklch(0.3 0 0);
+}
+
+/* Styled code blocks */
+.prose pre {
+  background: linear-gradient(135deg, oklch(0.18 0.02 260) 0%, oklch(0.15 0.02 280) 100%);
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  border: 1px solid oklch(0.3 0.02 260);
+  box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.1);
+}
+
+.prose pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: oklch(0.9 0 0);
+}
+
+.prose :not(pre) > code {
+  background: oklch(0.95 0.02 250);
+  padding: 0.2em 0.4em;
+  border-radius: 0.375rem;
+  font-size: 0.9em;
+  font-weight: 500;
+  color: oklch(0.4 0.15 270);
+}
+
+.dark .prose :not(pre) > code {
+  background: oklch(0.25 0.03 260);
+  color: oklch(0.85 0.1 250);
+}
+
+/* Blockquotes - styled as callouts */
+.prose blockquote {
+  background: linear-gradient(135deg, oklch(0.97 0.02 250) 0%, oklch(0.95 0.01 270) 100%);
+  border-left: 4px solid oklch(0.6 0.2 250);
+  border-radius: 0 0.75rem 0.75rem 0;
+  padding: 1.25rem 1.5rem;
+  margin: 1.5rem 0;
+  font-style: normal;
+  box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.06);
+}
+
+.dark .prose blockquote {
+  background: linear-gradient(135deg, oklch(0.22 0.02 250) 0%, oklch(0.2 0.02 270) 100%);
+  border-left-color: oklch(0.65 0.18 250);
+}
+
+.prose blockquote p {
+  margin: 0;
+  color: oklch(0.35 0 0);
+}
+
+.dark .prose blockquote p {
+  color: oklch(0.85 0 0);
+}
+
+/* Strong text highlight */
+.prose strong {
+  font-weight: 700;
+  color: oklch(0.35 0.1 270);
+}
+
+.dark .prose strong {
+  color: oklch(0.9 0.08 250);
+}
+
+/* Links */
+.prose a {
+  color: oklch(0.5 0.2 250);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+.prose a:hover {
+  color: oklch(0.4 0.25 250);
+}
+
+.dark .prose a {
+  color: oklch(0.7 0.15 250);
+}
+
+.dark .prose a:hover {
+  color: oklch(0.8 0.18 250);
+}
+
+/* Lists */
+.prose ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.prose ul > li {
+  position: relative;
+  padding-left: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose ul > li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.7em;
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(135deg, oklch(0.6 0.2 250) 0%, oklch(0.5 0.22 270) 100%);
+  border-radius: 50%;
+}
+
+.prose ol {
+  padding-left: 0;
+  counter-reset: item;
+}
+
+.prose ol > li {
+  position: relative;
+  padding-left: 2.5rem;
+  margin-bottom: 0.75rem;
+  counter-increment: item;
+}
+
+.prose ol > li::before {
+  content: counter(item);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: linear-gradient(135deg, oklch(0.6 0.2 250) 0%, oklch(0.5 0.22 270) 100%);
+  border-radius: 50%;
+  color: white;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Horizontal rule - section divider */
+.prose hr {
+  border: none;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, oklch(0.6 0.15 250 / 50%) 20%, oklch(0.6 0.15 250 / 50%) 80%, transparent 100%);
+  margin: 3rem 0;
+}
+
+/* Details/Summary (expandable hints) */
+.prose details {
+  background: oklch(0.98 0.01 200);
+  border: 1px solid oklch(0.9 0.02 200);
+  border-radius: 0.75rem;
+  padding: 0;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+
+.dark .prose details {
+  background: oklch(0.22 0.01 200);
+  border-color: oklch(0.35 0.02 200);
+}
+
+.prose details summary {
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  font-weight: 600;
+  background: oklch(0.95 0.02 200);
+  transition: background 0.15s ease;
+  list-style: none;
+}
+
+.dark .prose details summary {
+  background: oklch(0.28 0.02 200);
+}
+
+.prose details summary::-webkit-details-marker {
+  display: none;
+}
+
+.prose details summary::before {
+  content: "▶ ";
+  font-size: 0.75em;
+  margin-right: 0.5rem;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.prose details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.prose details summary:hover {
+  background: oklch(0.92 0.03 200);
+}
+
+.dark .prose details summary:hover {
+  background: oklch(0.32 0.03 200);
+}
+
+.prose details > *:not(summary) {
+  padding: 0 1.25rem 1rem;
+}
+
+/* ASCII art / diagrams in code blocks */
+.prose pre code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+/* Image styling */
+.prose img {
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+/* Paragraph spacing */
+.prose p {
+  margin-bottom: 1.25rem;
+}
+
+/* First paragraph after heading - slightly larger */
+.prose h2 + p,
+.prose h3 + p {
+  font-size: 1.15rem;
+  color: var(--tw-prose-body);
+}

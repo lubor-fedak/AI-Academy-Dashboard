@@ -300,7 +300,7 @@ export function DayBriefing({
                   <Skeleton className="h-4 w-2/3" />
                 </div>
               ) : content?.situation ? (
-                <div className="prose prose-sm dark:prose-invert max-w-none">
+                <div className="prose prose-lg dark:prose-invert max-w-none">
                   {contentError && (
                     <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
                       <AlertCircle className="h-4 w-4" />
@@ -352,7 +352,7 @@ export function DayBriefing({
                     <Skeleton className="h-24 w-full" />
                   </div>
                 ) : roleContent?.content ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <div className="prose prose-lg dark:prose-invert max-w-none">
                     <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                       <div className="flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400">
                         <User className="h-4 w-4" />
@@ -454,7 +454,7 @@ export function DayBriefing({
                   <Skeleton className="h-24 w-full" />
                 </div>
               ) : content?.resources ? (
-                <div className="prose prose-sm dark:prose-invert max-w-none">
+                <div className="prose prose-lg dark:prose-invert max-w-none">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeHighlight]}
