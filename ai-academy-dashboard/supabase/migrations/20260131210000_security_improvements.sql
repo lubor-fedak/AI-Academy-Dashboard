@@ -26,8 +26,8 @@ CREATE INDEX IF NOT EXISTS idx_task_force_members_participant_id ON task_force_m
 -- Index for participant_mastery lookups
 CREATE INDEX IF NOT EXISTS idx_participant_mastery_participant_id ON participant_mastery(participant_id);
 
--- Index for live_sessions by status
-CREATE INDEX IF NOT EXISTS idx_live_sessions_status ON live_sessions(status);
+-- Index for live_sessions by is_active (idx_live_sessions_active may already exist from operation migration)
+CREATE INDEX IF NOT EXISTS idx_live_sessions_is_active ON live_sessions(is_active);
 
 -- ============================================================================
 -- PART 2: RLS Policies for Write Operations
@@ -306,7 +306,7 @@ CREATE POLICY "Service modify participant_recognitions" ON participant_recogniti
 DROP POLICY IF EXISTS "Public read live_sessions" ON live_sessions;
 CREATE POLICY "Public read live_sessions" ON live_sessions
   FOR SELECT
-  USING (status = 'active' OR (current_setting('role', true) = 'service_role'));
+  USING (is_active = true OR (current_setting('role', true) = 'service_role'));
 
 -- Only service role can modify live sessions
 DROP POLICY IF EXISTS "Service modify live_sessions" ON live_sessions;
