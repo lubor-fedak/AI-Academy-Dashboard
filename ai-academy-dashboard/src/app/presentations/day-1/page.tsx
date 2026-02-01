@@ -30,6 +30,7 @@ const sections = [
   { id: 'prompts', label: 'Prompts' },
   { id: 'markdown', label: 'Markdown' },
   { id: 'tools', label: 'Tools' },
+  { id: 'project', label: 'Project' },
   { id: 'exercises', label: 'Exercises' },
   { id: 'summary', label: 'Summary' },
 ];
@@ -749,6 +750,155 @@ Explain AI agents in **3 paragraphs**:
         </div>
       </section>
 
+      {/* Project Structure Section */}
+      <section
+        ref={el => { sectionRefs.current['project'] = el; }}
+        id="project"
+        className="min-h-screen flex flex-col justify-center px-8 py-24"
+      >
+        <div className="max-w-[1400px] mx-auto w-full">
+          <SectionHeader number="09" title="Generative AI Project Structure" subtitle="Standard folder organization for production AI projects" />
+
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Folder Tree */}
+            <div className="p-6 rounded-2xl font-mono text-sm" style={{ background: colors.bgCard, border: `1px solid ${colors.borderColor}` }}>
+              <div className="space-y-1">
+                <FolderItem name="generative_ai_project/" isRoot />
+                <FolderItem name="config/" indent={1} color={colors.accentRed}>
+                  <FileItem name="model_config.yaml" indent={2} />
+                  <FileItem name="logging_config.yaml" indent={2} />
+                </FolderItem>
+                <FolderItem name="data/" indent={1} color={colors.accentOrange}>
+                  <FolderItem name="cache/" indent={2} isSmall />
+                  <FolderItem name="embeddings/" indent={2} isSmall />
+                  <FolderItem name="vectordb/" indent={2} isSmall />
+                </FolderItem>
+                <FolderItem name="src/" indent={1} color={colors.accentGreen}>
+                  <FolderItem name="core/" indent={2} color={colors.accentCyan}>
+                    <FileItem name="base_llm.py" indent={3} />
+                    <FileItem name="gpt_client.py" indent={3} />
+                    <FileItem name="claude_client.py" indent={3} />
+                    <FileItem name="local_llm.py" indent={3} />
+                    <FileItem name="model_factory.py" indent={3} />
+                  </FolderItem>
+                  <FolderItem name="prompts/" indent={2} color={colors.accentPurple}>
+                    <FileItem name="templates.py" indent={3} />
+                    <FileItem name="chain.py" indent={3} />
+                  </FolderItem>
+                  <FolderItem name="rag/" indent={2} color={colors.accentBlue}>
+                    <FileItem name="embedder.py" indent={3} />
+                    <FileItem name="generate.py" indent={3} />
+                    <FileItem name="vector_store.py" indent={3} />
+                    <FileItem name="indexer.py" indent={3} />
+                  </FolderItem>
+                  <FolderItem name="processing/" indent={2} color={colors.accentPink}>
+                    <FileItem name="chunking.py" indent={3} />
+                    <FileItem name="cleaner.py" indent={3} />
+                    <FileItem name="preprocessor.py" indent={3} />
+                  </FolderItem>
+                  <FolderItem name="inference/" indent={2} color={colors.accentOrange}>
+                    <FileItem name="inference.py" indent={3} />
+                  </FolderItem>
+                </FolderItem>
+                <FolderItem name="docs/" indent={1} color={colors.textMuted}>
+                  <FileItem name="README.md" indent={2} />
+                  <FileItem name="SETUP.md" indent={2} />
+                </FolderItem>
+                <FolderItem name="scripts/" indent={1} color={colors.accentGreen}>
+                  <FileItem name="setup_env.sh" indent={2} />
+                  <FileItem name="run_tests.sh" indent={2} />
+                  <FileItem name="build_embeddings.py" indent={2} />
+                  <FileItem name="cleanup.py" indent={2} />
+                </FolderItem>
+                <FileItem name=".gitignore" indent={1} />
+                <FileItem name="Dockerfile" indent={1} />
+                <FileItem name="docker-compose.yml" indent={1} />
+                <FileItem name="requirements.txt" indent={1} />
+              </div>
+            </div>
+
+            {/* Explanations */}
+            <div className="space-y-4">
+              <FolderExplanation
+                name="config/"
+                color={colors.accentRed}
+                items={[
+                  { file: 'model_config.yaml', desc: 'LLM providers, models, & parameters' },
+                  { file: 'logging_config.yaml', desc: 'Logging setup and levels' },
+                ]}
+              />
+              <FolderExplanation
+                name="data/"
+                color={colors.accentOrange}
+                items={[
+                  { file: 'cache/', desc: 'Cached responses and intermediates' },
+                  { file: 'embeddings/', desc: 'Generated vector embeddings' },
+                  { file: 'vectordb/', desc: 'Vector database indexes (FAISS, Chroma)' },
+                ]}
+              />
+              <FolderExplanation
+                name="src/core/"
+                color={colors.accentCyan}
+                intro="LLM abstraction and integrations"
+                items={[
+                  { file: 'base_llm.py', desc: 'Common LLM interface' },
+                  { file: 'gpt_client.py', desc: 'OpenAI GPT client' },
+                  { file: 'claude_client.py', desc: 'Anthropic Claude client' },
+                  { file: 'local_llm.py', desc: 'Local/hosted models (Ollama, vLLM)' },
+                  { file: 'model_factory.py', desc: 'Model selection and routing' },
+                ]}
+              />
+              <FolderExplanation
+                name="src/prompts/"
+                color={colors.accentPurple}
+                items={[
+                  { file: 'templates.py', desc: 'Reusable prompt templates' },
+                  { file: 'chain.py', desc: 'Multi-step prompt chaining' },
+                ]}
+              />
+              <FolderExplanation
+                name="src/rag/"
+                color={colors.accentBlue}
+                intro="Retrieval-Augmented Generation components"
+                items={[
+                  { file: 'embedder.py', desc: 'Embedding generation' },
+                  { file: 'generate.py', desc: 'RAG response generation' },
+                  { file: 'vector_store.py', desc: 'Vector DB retrieval' },
+                  { file: 'indexer.py', desc: 'Document indexing pipeline' },
+                ]}
+              />
+              <FolderExplanation
+                name="src/processing/"
+                color={colors.accentPink}
+                items={[
+                  { file: 'chunking.py', desc: 'Text splitting strategies' },
+                  { file: 'cleaner.py', desc: 'Text cleaning & extraction' },
+                  { file: 'preprocessor.py', desc: 'Input normalization' },
+                ]}
+              />
+              <FolderExplanation
+                name="Root Files"
+                color={colors.textMuted}
+                items={[
+                  { file: '.gitignore', desc: 'Git exclusions (API keys, cache)' },
+                  { file: 'Dockerfile', desc: 'Container configuration' },
+                  { file: 'docker-compose.yml', desc: 'Multi-service setup' },
+                  { file: 'requirements.txt', desc: 'Python dependencies' },
+                ]}
+              />
+            </div>
+          </div>
+
+          {/* Key Insight */}
+          <div className="mt-8 p-6 rounded-xl max-w-[900px] mx-auto" style={{ background: `rgba(16, 185, 129, 0.1)`, border: `1px solid ${colors.accentGreen}` }}>
+            <h4 className="font-semibold mb-2" style={{ color: colors.accentGreen }}>💡 Why This Structure?</h4>
+            <p style={{ color: colors.textSecondary }}>
+              This structure separates concerns: <strong className="text-white">config</strong> for settings, <strong className="text-white">data</strong> for artifacts, <strong className="text-white">src</strong> for code, <strong className="text-white">scripts</strong> for automation. It scales from prototype to production and works with any LLM provider.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Exercises Section */}
       <section
         ref={el => { sectionRefs.current['exercises'] = el; }}
@@ -756,7 +906,7 @@ Explain AI agents in **3 paragraphs**:
         className="min-h-screen flex flex-col justify-center px-8 py-24"
       >
         <div className="max-w-[1200px] mx-auto w-full">
-          <SectionHeader number="09" title="Today's Exercises" subtitle="Learning by doing - the only way that works" />
+          <SectionHeader number="10" title="Today's Exercises" subtitle="Learning by doing - the only way that works" />
 
           <div className="max-w-[600px] mx-auto space-y-8">
             {/* Exercise 1 */}
@@ -836,7 +986,7 @@ Explain AI agents in **3 paragraphs**:
         className="min-h-screen flex flex-col justify-center px-8 py-24"
       >
         <div className="max-w-[1200px] mx-auto w-full">
-          <SectionHeader number="10" title="Key Messages" subtitle="What to remember from Day 1" />
+          <SectionHeader number="11" title="Key Messages" subtitle="What to remember from Day 1" />
 
           {/* Key Takeaways */}
           <div className="p-8 rounded-2xl mb-12" style={{ background: `linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)`, border: `1px solid ${colors.accentBlue}` }}>
@@ -934,6 +1084,105 @@ function SectionHeader({ number, title, subtitle }: { number: string; title: str
       </span>
       <h2 className="text-3xl md:text-4xl font-bold mb-4">{title}</h2>
       <p className="text-lg max-w-[600px] mx-auto" style={{ color: colors.textSecondary }}>{subtitle}</p>
+    </div>
+  );
+}
+
+// Folder Tree Components for Project Structure
+function FolderItem({
+  name,
+  indent = 0,
+  color,
+  isRoot = false,
+  isSmall = false,
+  children,
+}: {
+  name: string;
+  indent?: number;
+  color?: string;
+  isRoot?: boolean;
+  isSmall?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <>
+      <div
+        className="flex items-center gap-2"
+        style={{ paddingLeft: `${indent * 20}px` }}
+      >
+        {indent > 0 && (
+          <span style={{ color: colors.textMuted }}>
+            {isSmall ? '├──' : '├──'}
+          </span>
+        )}
+        <span style={{ color: color || (isRoot ? colors.accentOrange : colors.accentOrange) }}>
+          📁
+        </span>
+        <span style={{ color: color || colors.textPrimary, fontWeight: isRoot ? 600 : 400 }}>
+          {name}
+        </span>
+      </div>
+      {children}
+    </>
+  );
+}
+
+function FileItem({ name, indent = 0 }: { name: string; indent?: number }) {
+  const getFileIcon = (filename: string) => {
+    if (filename.endsWith('.py')) return '🐍';
+    if (filename.endsWith('.yaml') || filename.endsWith('.yml')) return '⚙️';
+    if (filename.endsWith('.md')) return '📄';
+    if (filename.endsWith('.sh')) return '🔧';
+    if (filename.endsWith('.txt')) return '📝';
+    if (filename === 'Dockerfile') return '🐳';
+    if (filename === '.gitignore') return '👁️';
+    return '📄';
+  };
+
+  return (
+    <div
+      className="flex items-center gap-2"
+      style={{ paddingLeft: `${indent * 20}px` }}
+    >
+      <span style={{ color: colors.textMuted }}>├──</span>
+      <span>{getFileIcon(name)}</span>
+      <span style={{ color: colors.textSecondary }}>{name}</span>
+    </div>
+  );
+}
+
+function FolderExplanation({
+  name,
+  color,
+  intro,
+  items,
+}: {
+  name: string;
+  color: string;
+  intro?: string;
+  items: { file: string; desc: string }[];
+}) {
+  return (
+    <div className="p-4 rounded-xl" style={{ background: colors.bgCard, border: `1px solid ${colors.borderColor}` }}>
+      <h4
+        className="font-semibold text-sm mb-2 px-2 py-1 rounded inline-block"
+        style={{ background: `${color}20`, color }}
+      >
+        {name}
+      </h4>
+      {intro && (
+        <p className="text-sm mb-2" style={{ color: colors.textSecondary }}>{intro}</p>
+      )}
+      <ul className="space-y-1 text-sm">
+        {items.map(item => (
+          <li key={item.file} style={{ color: colors.textSecondary }}>
+            <code className="px-1.5 py-0.5 rounded text-xs mr-2" style={{ background: 'rgba(255,255,255,0.05)', color: colors.textPrimary }}>
+              {item.file}
+            </code>
+            – {item.desc}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
