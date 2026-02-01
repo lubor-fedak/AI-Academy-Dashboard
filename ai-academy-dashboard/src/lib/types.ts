@@ -461,3 +461,83 @@ export const URGENCY_COLORS: Record<ClientUrgency, string> = {
   'high': 'bg-orange-500',
   'critical': 'bg-red-500',
 };
+
+// ============================================================================
+// PREREQUISITES TRACKING
+// ============================================================================
+
+export type PrerequisiteCategory = 'development' | 'ai_platforms' | 'google' | 'collaboration' | 'technical' | 'confirmation';
+
+export interface PrerequisiteItem {
+  id: number;
+  code: string;
+  category: PrerequisiteCategory;
+  name: string;
+  description: string | null;
+  help_url: string | null;
+  is_required: boolean;
+  display_order: number;
+  created_at: string;
+}
+
+export interface ParticipantPrerequisite {
+  id: string;
+  participant_id: string;
+  prerequisite_id: number;
+  is_completed: boolean;
+  completed_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PrerequisiteWithStatus extends PrerequisiteItem {
+  is_completed: boolean;
+  completed_at: string | null;
+  notes: string | null;
+}
+
+export interface ParticipantPrerequisitesSummary {
+  participant_id: string;
+  name: string;
+  email: string;
+  role: RoleType | null;
+  team: TeamType | null;
+  completed_count: number;
+  required_total: number;
+  required_completed: number;
+  total_items: number;
+  required_completion_pct: number;
+  total_completion_pct: number;
+}
+
+export interface PrerequisiteStats {
+  id: number;
+  code: string;
+  category: PrerequisiteCategory;
+  name: string;
+  is_required: boolean;
+  total_participants: number;
+  completed_count: number;
+  completion_pct: number;
+}
+
+// Category display names
+export const PREREQUISITE_CATEGORY_NAMES: Record<PrerequisiteCategory, string> = {
+  'development': 'Development Environment',
+  'ai_platforms': 'Enterprise AI Platforms',
+  'google': 'Google Workspace',
+  'collaboration': 'Collaboration Tools',
+  'technical': 'Technical Setup (Optional)',
+  'confirmation': 'Pre-course Confirmation',
+};
+
+// Category icons
+export const PREREQUISITE_CATEGORY_ICONS: Record<PrerequisiteCategory, string> = {
+  'development': '💻',
+  'ai_platforms': '🤖',
+  'google': '🔷',
+  'collaboration': '🤝',
+  'technical': '⚙️',
+  'confirmation': '✅',
+};

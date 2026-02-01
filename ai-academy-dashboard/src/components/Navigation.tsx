@@ -44,6 +44,7 @@ import {
   Eye,
   EyeOff,
   HelpCircle,
+  Rocket,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -60,6 +61,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/prerequisites', label: 'Prerequisites', icon: Rocket, requiresAuth: true },
   { href: '/mission', label: 'Mission', icon: Target, requiresAuth: true, requiresApproval: true },
   { href: '/intel', label: 'Intel', icon: Zap, requiresAuth: true, requiresApproval: true },
   { href: '/live-session', label: 'Live', icon: Radio, requiresAuth: true, requiresApproval: true },
@@ -71,6 +73,7 @@ const navItems: NavItem[] = [
   { href: '/analytics', label: 'Analytics', icon: BarChart3, requiresAuth: true, requiresApproval: true },
   { href: '/admin', label: 'Submissions', icon: ShieldCheck, adminOnly: true },
   { href: '/admin/users', label: 'Users', icon: Users, adminOnly: true },
+  { href: '/admin/prerequisites', label: 'Prerequisites', icon: Rocket, adminOnly: true },
 ];
 
 export function Navigation() {
@@ -288,6 +291,12 @@ export function Navigation() {
                               <Link href="/admin/users" className="cursor-pointer">
                                 <Users className="mr-2 h-4 w-4" />
                                 User Management
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href="/admin/prerequisites" className="cursor-pointer">
+                                <Rocket className="mr-2 h-4 w-4" />
+                                Prerequisites
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
