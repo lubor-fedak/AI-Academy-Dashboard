@@ -1,7 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { MyDashboardClient } from '@/components/MyDashboardClient';
 import type {
-  Participant,
   Assignment,
   LeaderboardView,
   Achievement,
@@ -17,14 +16,12 @@ export default async function MyDashboardPage() {
 
   // Fetch all data needed for the dashboard
   const [
-    participantsResult,
     assignmentsResult,
     leaderboardResult,
     achievementsResult,
     teamProgressResult,
     missionDaysResult,
   ] = await Promise.all([
-    supabase.from('participants').select('*'),
     supabase.from('assignments').select('*').order('day').order('type'),
     supabase.from('leaderboard_view').select('*').order('rank'),
     supabase.from('achievements').select('*'),
@@ -33,7 +30,6 @@ export default async function MyDashboardPage() {
     supabase.from('mission_days').select('day, unlock_date, is_visible'),
   ]);
 
-  const participants = (participantsResult.data as Participant[]) ?? [];
   const allAssignments = (assignmentsResult.data as Assignment[]) ?? [];
   const leaderboard = (leaderboardResult.data as LeaderboardView[]) ?? [];
   const allAchievements = (achievementsResult.data as Achievement[]) ?? [];
@@ -64,7 +60,6 @@ export default async function MyDashboardPage() {
       </div>
 
       <MyDashboardClient
-        participants={participants}
         assignments={assignments}
         leaderboard={leaderboard}
         allAchievements={allAchievements}

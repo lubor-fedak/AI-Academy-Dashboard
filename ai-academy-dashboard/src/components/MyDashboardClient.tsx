@@ -1,18 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/components/AuthProvider';
 import { getSupabaseClient } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -32,20 +26,18 @@ import {
   Flame,
   Target,
   Users,
-  AlertCircle,
   CheckCircle,
   Clock,
   TrendingUp,
   Award,
-  ExternalLink,
   ArrowUp,
   ArrowDown,
   Minus,
   UserCog,
   Info,
+  Loader2,
 } from 'lucide-react';
 import type {
-  Participant,
   Assignment,
   LeaderboardView,
   Achievement,
@@ -56,7 +48,6 @@ import type {
 import { ACHIEVEMENT_ICONS } from '@/lib/types';
 
 interface MyDashboardClientProps {
-  participants: Participant[];
   assignments: Assignment[];
   leaderboard: LeaderboardView[];
   allAchievements: Achievement[];
@@ -64,42 +55,29 @@ interface MyDashboardClientProps {
 }
 
 export function MyDashboardClient({
-  participants,
   assignments,
   leaderboard,
   allAchievements,
   teamProgress,
 }: MyDashboardClientProps) {
-  const [selectedUsername, setSelectedUsername] = useState<string>('');
+  const { participant, isLoading: authLoading } = useAuth();
   const [submissions, setSubmissions] = useState<SubmissionWithDetails[]>([]);
   const [earnedAchievements, setEarnedAchievements] = useState<
     (ParticipantAchievement & { achievements: Achievement })[]
   >([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(false);
 
-  // Load saved user id from localStorage
+  // Fetch user-specific data when participant is available
   useEffect(() => {
-    const saved = localStorage.getItem('my-dashboard-user-id');
-    if (saved && participants.some((p) => p.id === saved)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedUsername(saved);
+    if (!participant) {
+      return;
     }
-  }, [participants]);
 
-  // Fetch user-specific data when username changes
-  useEffect(() => {
-    if (!selectedUsername) return;
-
-    localStorage.setItem('my-dashboard-user-id', selectedUsername);
+    let isCancelled = false;
 
     const fetchUserData = async () => {
-      setIsLoading(true);
+      setIsFetchingData(true);
       const supabase = getSupabaseClient();
-
-      const participant = participants.find(
-        (p) => p.id === selectedUsername
-      );
-      if (!participant) return;
 
       const [submissionsResult, achievementsResult] = await Promise.all([
         supabase
@@ -113,29 +91,37 @@ export function MyDashboardClient({
           .eq('participant_id', participant.id),
       ]);
 
-      setSubmissions(
-        (submissionsResult.data as SubmissionWithDetails[]) ?? []
-      );
-      setEarnedAchievements(
-        (achievementsResult.data as (ParticipantAchievement & {
-          achievements: Achievement;
-        })[]) ?? []
-      );
-      setIsLoading(false);
+      if (!isCancelled) {
+        setSubmissions(
+          (submissionsResult.data as SubmissionWithDetails[]) ?? []
+        );
+        setEarnedAchievements(
+          (achievementsResult.data as (ParticipantAchievement & {
+            achievements: Achievement;
+          })[]) ?? []
+        );
+        setIsFetchingData(false);
+      }
     };
 
     fetchUserData();
-  }, [selectedUsername, participants]);
 
-  const currentUser = participants.find(
-    (p) => p.id === selectedUsername
-  );
-  const userLeaderboard = currentUser
-    ? leaderboard.find((l) => l.github_username === currentUser.github_username)
+    return () => {
+      isCancelled = true;
+    };
+  }, [participant]);
+
+  // Find user in leaderboard - match by nickname or name since github_username might be null
+  const userLeaderboard = participant
+    ? leaderboard.find((l) =>
+        l.github_username === participant.github_username ||
+        l.name === participant.name
+      )
     : undefined;
-  const userTeamProgress = teamProgress.find(
-    (t) => t.team === currentUser?.team
-  );
+
+  const userTeamProgress = participant?.team
+    ? teamProgress.find((t) => t.team === participant.team)
+    : undefined;
 
   // Calculate missing assignments
   const submittedAssignmentIds = new Set(
@@ -146,7 +132,9 @@ export function MyDashboardClient({
   );
 
   // Calculate team comparison
-  const teamMembers = leaderboard.filter((l) => l.team === currentUser?.team);
+  const teamMembers = participant?.team
+    ? leaderboard.filter((l) => l.team === participant.team)
+    : [];
   const teamAvgPoints =
     teamMembers.length > 0
       ? Math.round(
@@ -205,94 +193,58 @@ export function MyDashboardClient({
     return <Minus className="h-4 w-4 text-muted-foreground" />;
   };
 
-  if (!selectedUsername) {
+  // Loading state - show spinner while auth is loading or data is being fetched
+  if (authLoading || (participant && isFetchingData)) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-[#0062FF]" />
-            Select Your Profile
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-muted-foreground">
-            To view your personal dashboard, select your name from the list:
-          </p>
-          <Select value={selectedUsername} onValueChange={setSelectedUsername}>
-            <SelectTrigger className="w-full max-w-md">
-              <SelectValue placeholder="Select your GitHub username" />
-            </SelectTrigger>
-            <SelectContent>
-              {participants.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name} (@{p.nickname || p.github_username || 'no-username'})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Your selection will be saved for next time.
-          </p>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#0062FF]" />
+      </div>
+    );
+  }
+
+  // No participant found
+  if (!participant) {
+    return (
+      <Card className="border-[#0062FF]/50">
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-3">
+            <Info className="h-8 w-8 text-[#0062FF]" />
+            <div>
+              <p className="font-bold">Complete Your Registration</p>
+              <p className="text-sm text-muted-foreground">
+                Please complete the onboarding process to access your dashboard.
+              </p>
+              <Link href="/onboarding">
+                <Button size="sm" className="mt-3 bg-[#0062FF] hover:bg-[#0052D9]">
+                  Go to Onboarding
+                </Button>
+              </Link>
+            </div>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
-  if (!currentUser || !userLeaderboard) {
-    return (
-      <Card className="border-red-500/50 bg-red-500/10">
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-2 text-red-500">
-            <AlertCircle className="h-5 w-5" />
-            <span>User not found</span>
-          </div>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => {
-              setSelectedUsername('');
-              localStorage.removeItem('my-dashboard-user-id');
-            }}
-          >
-            Select another user
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Create a default leaderboard entry if user is not in leaderboard yet
+  const displayLeaderboard = userLeaderboard || {
+    rank: leaderboard.length + 1,
+    total_points: 0,
+    total_submissions: 0,
+    avg_mentor_rating: null,
+    current_streak: 0,
+  };
 
   return (
     <div className="space-y-6">
-      {/* User Selector */}
-      <div className="flex items-center justify-between">
-        <Select value={selectedUsername} onValueChange={setSelectedUsername}>
-          <SelectTrigger className="w-[300px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {participants.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name} (@{p.nickname || p.github_username || 'no-username'})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Link href={`/participant/${currentUser?.nickname || selectedUsername}`}>
-          <Button variant="outline" size="sm">
-            Public Profile
-            <ExternalLink className="ml-2 h-4 w-4" />
-          </Button>
-        </Link>
-      </div>
-
       {/* Profile Header */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
             <Avatar className="h-20 w-20">
-              <AvatarImage src={currentUser.avatar_url ?? undefined} />
+              <AvatarImage src={participant.avatar_url ?? undefined} />
               <AvatarFallback className="text-xl">
-                {currentUser.name
+                {participant.name
                   .split(' ')
                   .map((n) => n[0])
                   .join('')}
@@ -301,31 +253,33 @@ export function MyDashboardClient({
 
             <div className="flex-1">
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-2xl font-bold">{currentUser.name}</h2>
-                <Badge
-                  className={`${
-                    userLeaderboard.rank <= 3
-                      ? 'bg-yellow-500 text-black'
-                      : 'bg-[#0062FF]'
-                  }`}
-                >
-                  #{userLeaderboard.rank}
-                </Badge>
+                <h2 className="text-2xl font-bold">{participant.name}</h2>
+                {userLeaderboard && (
+                  <Badge
+                    className={`${
+                      userLeaderboard.rank <= 3
+                        ? 'bg-yellow-500 text-black'
+                        : 'bg-[#0062FF]'
+                    }`}
+                  >
+                    #{userLeaderboard.rank}
+                  </Badge>
+                )}
               </div>
-              <p className="text-muted-foreground">@{currentUser.nickname || currentUser.github_username || 'no-username'}</p>
+              <p className="text-muted-foreground">@{participant.nickname || 'no-nickname'}</p>
               <div className="flex items-center gap-2 mt-2 flex-wrap">
-                {currentUser.role ? (
-                  <Badge variant="outline">{currentUser.role}</Badge>
+                {participant.role ? (
+                  <Badge variant="outline">{participant.role}</Badge>
                 ) : (
                   <Badge variant="outline" className="border-dashed text-muted-foreground">No Role</Badge>
                 )}
-                {currentUser.team ? (
-                  <Badge variant="secondary">Team {currentUser.team}</Badge>
+                {participant.team ? (
+                  <Badge variant="secondary">Team {participant.team}</Badge>
                 ) : (
                   <Badge variant="secondary" className="border-dashed text-muted-foreground">No Team</Badge>
                 )}
-                {currentUser.stream ? (
-                  <Badge>{currentUser.stream}</Badge>
+                {participant.stream ? (
+                  <Badge>{participant.stream}</Badge>
                 ) : (
                   <Badge className="border-dashed text-muted-foreground bg-muted">No Stream</Badge>
                 )}
@@ -336,26 +290,26 @@ export function MyDashboardClient({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="text-center p-3 bg-accent/50 rounded-lg">
                 <Trophy className="h-5 w-5 mx-auto mb-1 text-[#0062FF]" />
-                <p className="text-xl font-bold">{userLeaderboard.total_points}</p>
+                <p className="text-xl font-bold">{displayLeaderboard.total_points}</p>
                 <p className="text-xs text-muted-foreground">Points</p>
               </div>
               <div className="text-center p-3 bg-accent/50 rounded-lg">
                 <GitCommit className="h-5 w-5 mx-auto mb-1 text-green-500" />
                 <p className="text-xl font-bold">
-                  {userLeaderboard.total_submissions}
+                  {displayLeaderboard.total_submissions}
                 </p>
                 <p className="text-xs text-muted-foreground">Submissions</p>
               </div>
               <div className="text-center p-3 bg-accent/50 rounded-lg">
                 <Star className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
                 <p className="text-xl font-bold">
-                  {userLeaderboard.avg_mentor_rating?.toFixed(1) ?? '-'}
+                  {displayLeaderboard.avg_mentor_rating?.toFixed(1) ?? '-'}
                 </p>
                 <p className="text-xs text-muted-foreground">Rating</p>
               </div>
               <div className="text-center p-3 bg-accent/50 rounded-lg">
                 <Flame className="h-5 w-5 mx-auto mb-1 text-orange-500" />
-                <p className="text-xl font-bold">{userLeaderboard.current_streak}</p>
+                <p className="text-xl font-bold">{displayLeaderboard.current_streak}</p>
                 <p className="text-xs text-muted-foreground">Streak</p>
               </div>
             </div>
@@ -364,7 +318,7 @@ export function MyDashboardClient({
       </Card>
 
       {/* Setup Prompt - Show when role/team/stream not set */}
-      {(!currentUser.role || !currentUser.team || !currentUser.stream) && (
+      {(!participant.role || !participant.team || !participant.stream) && (
         <Card className="border-[#0062FF]/50 bg-[#0062FF]/5">
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
@@ -506,11 +460,7 @@ export function MyDashboardClient({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  Loading...
-                </div>
-              ) : submissions.length === 0 ? (
+              {submissions.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No submissions yet
                 </div>
@@ -591,22 +541,22 @@ export function MyDashboardClient({
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Team Comparison - only show if user has a team */}
-              {currentUser.team ? (
+              {participant.team ? (
                 <>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground mb-2">
-                      vs. Team {currentUser.team}
+                      vs. Team {participant.team}
                     </p>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm">Points</span>
                         <div className="flex items-center gap-2">
                           {getComparisonIcon(
-                            userLeaderboard.total_points,
+                            displayLeaderboard.total_points,
                             teamAvgPoints
                           )}
                           <span className="font-medium">
-                            {userLeaderboard.total_points} / {teamAvgPoints} avg
+                            {displayLeaderboard.total_points} / {teamAvgPoints} avg
                           </span>
                         </div>
                       </div>
@@ -614,11 +564,11 @@ export function MyDashboardClient({
                         <span className="text-sm">Submissions</span>
                         <div className="flex items-center gap-2">
                           {getComparisonIcon(
-                            userLeaderboard.total_submissions,
+                            displayLeaderboard.total_submissions,
                             teamAvgSubmissions
                           )}
                           <span className="font-medium">
-                            {userLeaderboard.total_submissions} / {teamAvgSubmissions}{' '}
+                            {displayLeaderboard.total_submissions} / {teamAvgSubmissions}{' '}
                             avg
                           </span>
                         </div>
@@ -654,11 +604,11 @@ export function MyDashboardClient({
                     <span className="text-sm">Points</span>
                     <div className="flex items-center gap-2">
                       {getComparisonIcon(
-                        userLeaderboard.total_points,
+                        displayLeaderboard.total_points,
                         overallAvgPoints
                       )}
                       <span className="font-medium">
-                        {userLeaderboard.total_points} / {overallAvgPoints} avg
+                        {displayLeaderboard.total_points} / {overallAvgPoints} avg
                       </span>
                     </div>
                   </div>
@@ -666,11 +616,11 @@ export function MyDashboardClient({
                     <span className="text-sm">Submissions</span>
                     <div className="flex items-center gap-2">
                       {getComparisonIcon(
-                        userLeaderboard.total_submissions,
+                        displayLeaderboard.total_submissions,
                         overallAvgSubmissions
                       )}
                       <span className="font-medium">
-                        {userLeaderboard.total_submissions} /{' '}
+                        {displayLeaderboard.total_submissions} /{' '}
                         {overallAvgSubmissions} avg
                       </span>
                     </div>
@@ -678,20 +628,20 @@ export function MyDashboardClient({
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Rank</span>
                     <span className="font-medium">
-                      #{userLeaderboard.rank} of {leaderboard.length}
+                      #{displayLeaderboard.rank} of {leaderboard.length || 1}
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Team Rank - only show if user has a team */}
-              {currentUser.team && userTeamProgress && (
+              {participant.team && userTeamProgress && (
                 <>
                   <Separator />
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Team {currentUser.team} rank</span>
+                    <span className="text-sm">Team {participant.team} rank</span>
                     <Badge>
-                      #{teamProgress.findIndex((t) => t.team === currentUser.team) + 1}
+                      #{teamProgress.findIndex((t) => t.team === participant.team) + 1}
                     </Badge>
                   </div>
                 </>
