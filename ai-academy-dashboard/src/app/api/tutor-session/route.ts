@@ -20,7 +20,7 @@ const tutorSessionSchema = z.object({
 // Validation schema for role expo interaction
 const roleExpoInteractionSchema = z.object({
   participant_id: z.string().uuid(),
-  role_code: z.enum(['AI-PM', 'FDE', 'AI-SE', 'AI-DA', 'AI-DS', 'AI-SEC', 'AI-FE', 'AI-DX']),
+  role_code: z.enum(['AI-PM', 'FDE', 'AI-SE', 'AI-DA', 'AI-DS', 'AI-SEC', 'AI-FE']),
   interaction_type: z.enum(['mini_challenge', 'ai_tutor', 'reflection']),
   notes: z.string().optional(),
 });

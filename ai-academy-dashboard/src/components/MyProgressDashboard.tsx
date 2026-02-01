@@ -60,10 +60,10 @@ export function MyProgressDashboard({
   const clearance = mastery?.clearance ?? 'TRAINEE';
   const masteryLevel = mastery?.mastery_level ?? 1;
 
-  // Calculate progress percentages
+  // Calculate progress percentages based on unlocked days only
   const daysCompleted = completedDays.length;
-  const totalDays = 25;
-  const daysProgress = Math.round((daysCompleted / totalDays) * 100);
+  const unlockedDaysCount = missionDays.length; // missionDays is already filtered to unlocked only
+  const daysProgress = unlockedDaysCount > 0 ? Math.round((daysCompleted / unlockedDaysCount) * 100) : 0;
 
   // Group days by act
   const daysByAct = missionDays.reduce((acc, day) => {
@@ -215,7 +215,7 @@ export function MyProgressDashboard({
                 <Calendar className="h-6 w-6 text-blue-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{daysCompleted}</p>
+                <p className="text-2xl font-bold">{daysCompleted} / {unlockedDaysCount}</p>
                 <p className="text-sm text-muted-foreground">Days Completed</p>
               </div>
             </div>
@@ -372,52 +372,57 @@ export function MyProgressDashboard({
         </Card>
       </div>
 
-      {/* Mission Progress by Act */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Mission Progress
-          </CardTitle>
-          <CardDescription>Your journey through the program</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {[1, 2, 3, 4].map((act) => {
-            const actDays = daysByAct[act] || [];
-            const actCompleted = actDays.filter(d => completedDays.includes(d.day)).length;
-            const actProgress = actDays.length > 0 ? Math.round((actCompleted / actDays.length) * 100) : 0;
+      {/* Mission Progress by Act - only show acts that have unlocked days */}
+      {missionDays.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Mission Progress
+            </CardTitle>
+            <CardDescription>Your journey through the program</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {[1, 2, 3, 4].map((act) => {
+              const actDays = daysByAct[act] || [];
+              // Skip acts with no unlocked days
+              if (actDays.length === 0) return null;
 
-            return (
-              <div key={act} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">ACT {act}: {ACT_NAMES[act]}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {actCompleted} of {actDays.length} days completed
-                    </p>
+              const actCompleted = actDays.filter(d => completedDays.includes(d.day)).length;
+              const actProgress = actDays.length > 0 ? Math.round((actCompleted / actDays.length) * 100) : 0;
+
+              return (
+                <div key={act} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">ACT {act}: {ACT_NAMES[act]}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {actCompleted} of {actDays.length} days completed
+                      </p>
+                    </div>
+                    <span className="text-lg font-bold">{actProgress}%</span>
                   </div>
-                  <span className="text-lg font-bold">{actProgress}%</span>
+                  <div className="flex gap-1">
+                    {actDays.map((day) => {
+                      const isCompleted = completedDays.includes(day.day);
+                      return (
+                        <Link
+                          key={day.day}
+                          href={`/mission/day/${day.day}`}
+                          className={`flex-1 h-2 rounded-full transition-colors ${
+                            isCompleted ? 'bg-green-500' : 'bg-muted'
+                          }`}
+                          title={`Day ${day.day}: ${day.title}`}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="flex gap-1">
-                  {actDays.map((day) => {
-                    const isCompleted = completedDays.includes(day.day);
-                    return (
-                      <Link
-                        key={day.day}
-                        href={`/mission/day/${day.day}`}
-                        className={`flex-1 h-2 rounded-full transition-colors ${
-                          isCompleted ? 'bg-green-500' : 'bg-muted'
-                        }`}
-                        title={`Day ${day.day}: ${day.title}`}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Motivational Quote */}
       <Card className="bg-gradient-to-r from-primary/5 to-transparent border-primary/20">

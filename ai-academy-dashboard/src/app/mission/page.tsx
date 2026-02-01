@@ -51,10 +51,17 @@ export default async function MissionPage() {
       .single() : Promise.resolve({ data: null }),
   ]);
 
-  const missionDays = (missionDaysResult.data as MissionDay[]) ?? [];
+  const allMissionDays = (missionDaysResult.data as MissionDay[]) ?? [];
   const taskForces = (taskForcesResult.data as (TaskForce & { pilot_clients: PilotClient | null })[]) ?? [];
   const pilotClients = (pilotClientsResult.data as PilotClient[]) ?? [];
   const intelDrops = (intelDropsResult.data as IntelDrop[]) ?? [];
+
+  // Filter mission days to only show unlocked ones (unlock_date <= today OR is_visible = true)
+  const todayStr = new Date().toISOString().split('T')[0];
+  const missionDays = allMissionDays.filter(md => {
+    if (!md.unlock_date) return md.is_visible;
+    return new Date(md.unlock_date) <= new Date(todayStr) || md.is_visible;
+  });
   const participant = participantResult.data as {
     id: string;
     name: string;

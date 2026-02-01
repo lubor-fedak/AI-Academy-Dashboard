@@ -67,10 +67,17 @@ export default async function MyProgressPage() {
     .select('*');
 
   // Fetch mission days for progress tracking
-  const { data: missionDays } = await supabase
+  const { data: allMissionDays } = await supabase
     .from('mission_days')
     .select('*')
     .order('day');
+
+  // Filter mission days to only show unlocked ones (unlock_date <= today OR is_visible = true)
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  const missionDays = (allMissionDays ?? []).filter(md => {
+    if (!md.unlock_date) return md.is_visible;
+    return new Date(md.unlock_date) <= new Date(today) || md.is_visible;
+  });
 
   // Fetch submissions to calculate progress
   const { data: submissions } = await supabase
@@ -78,9 +85,11 @@ export default async function MyProgressPage() {
     .select('*, assignments(day)')
     .eq('participant_id', participant.id);
 
-  // Calculate completed days
+  // Calculate completed days (only for unlocked days)
+  const unlockedDayNumbers = new Set(missionDays.map(md => md.day));
   const completedDays = new Set(
-    submissions?.map(s => (s.assignments as { day: number } | null)?.day).filter(Boolean) ?? []
+    submissions?.map(s => (s.assignments as { day: number } | null)?.day)
+      .filter(day => day && unlockedDayNumbers.has(day)) ?? []
   );
 
   const taskForce = taskForceMembership?.task_forces as (TaskForce & { pilot_clients: PilotClient | null }) | null;

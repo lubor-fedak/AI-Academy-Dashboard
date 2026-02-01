@@ -31,6 +31,9 @@ import {
   Loader2,
   AlertCircle,
   User,
+  Presentation,
+  Play,
+  ExternalLink,
 } from 'lucide-react';
 
 // Content fetched from Git/API
@@ -57,6 +60,31 @@ interface RoleContent {
   source: 'local' | 'github' | 'fallback';
   hasFallback: boolean;
 }
+
+// Presentations configuration - maps day numbers to their presentations
+interface PresentationLink {
+  title: string;
+  description: string;
+  href: string;
+  icon: 'intro' | 'presentation';
+}
+
+const DAY_PRESENTATIONS: Record<number, PresentationLink[]> = {
+  1: [
+    {
+      title: 'Academy Intro Animation',
+      description: 'Animated countdown and welcome sequence for the opening ceremony',
+      href: '/presentations/day-1/intro',
+      icon: 'intro',
+    },
+    {
+      title: 'Day 1: The New Reality',
+      description: 'Full interactive presentation covering AI landscape 2026, roles, KAF, and exercises',
+      href: '/presentations/day-1',
+      icon: 'presentation',
+    },
+  ],
+};
 
 export function DayBriefing({
   missionDay,
@@ -316,6 +344,12 @@ export function DayBriefing({
                 <BookOpen className="h-4 w-4" />
                 Resources
               </TabsTrigger>
+              {DAY_PRESENTATIONS[missionDay.day] && (
+                <TabsTrigger value="presentations" className="flex items-center gap-2">
+                  <Presentation className="h-4 w-4" />
+                  Presentations
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="briefing" className="space-y-4">
@@ -517,6 +551,51 @@ export function DayBriefing({
                 </Card>
               )}
             </TabsContent>
+
+            {/* Presentations Tab */}
+            {DAY_PRESENTATIONS[missionDay.day] && (
+              <TabsContent value="presentations" className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {DAY_PRESENTATIONS[missionDay.day].map((presentation, index) => (
+                    <Card key={index} className="hover:border-primary/50 transition-colors">
+                      <CardContent className="pt-6">
+                        <div className="flex items-start gap-4">
+                          <div className={`p-3 rounded-xl ${
+                            presentation.icon === 'intro'
+                              ? 'bg-orange-500/10 text-orange-500'
+                              : 'bg-blue-500/10 text-blue-500'
+                          }`}>
+                            {presentation.icon === 'intro' ? (
+                              <Play className="h-6 w-6" />
+                            ) : (
+                              <Presentation className="h-6 w-6" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold mb-1">{presentation.title}</h3>
+                            <p className="text-sm text-muted-foreground mb-4">{presentation.description}</p>
+                            <Link
+                              href={presentation.href}
+                              target="_blank"
+                              className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                            >
+                              Open Presentation
+                              <ExternalLink className="h-4 w-4" />
+                            </Link>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                <div className="p-4 bg-muted/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Tip:</strong> Presentations open in a new tab and are optimized for fullscreen viewing.
+                    Use arrow keys or scroll to navigate between sections.
+                  </p>
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         </CardContent>
       </Card>
