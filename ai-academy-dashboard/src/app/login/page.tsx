@@ -34,8 +34,9 @@ function LoginForm() {
 
   const error = searchParams.get('error');
   const message = searchParams.get('message');
+  const tabParam = searchParams.get('tab');
 
-  const [activeTab, setActiveTab] = useState('signin');
+  const [activeTab, setActiveTab] = useState(tabParam === 'signup' ? 'signup' : 'signin');
 
   // Redirect if already logged in
   useEffect(() => {
