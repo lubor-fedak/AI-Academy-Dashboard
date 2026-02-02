@@ -1106,21 +1106,24 @@ function FolderItem({
   isSmall?: boolean;
   children?: React.ReactNode;
 }) {
+  const folderColor = color || (isRoot ? '#f4a460' : colors.accentOrange);
   return (
     <>
       <div
-        className="flex items-center gap-2"
+        className="flex items-center gap-2 py-0.5 hover:bg-white/5 rounded px-1 cursor-default"
         style={{ paddingLeft: `${indent * 20}px` }}
       >
         {indent > 0 && (
-          <span style={{ color: colors.textMuted }}>
-            {isSmall ? '├──' : '├──'}
+          <span className="font-mono text-xs" style={{ color: colors.textMuted }}>
+            ├──
           </span>
         )}
-        <span style={{ color: color || (isRoot ? colors.accentOrange : colors.accentOrange) }}>
-          📁
-        </span>
-        <span style={{ color: color || colors.textPrimary, fontWeight: isRoot ? 600 : 400 }}>
+        {/* Colored folder icon box */}
+        <div
+          className="w-4 h-3 rounded-sm flex-shrink-0"
+          style={{ background: folderColor }}
+        />
+        <span style={{ color: colors.textPrimary, fontWeight: isRoot ? 600 : 400 }}>
           {name}
         </span>
       </div>
@@ -1131,23 +1134,25 @@ function FolderItem({
 
 function FileItem({ name, indent = 0 }: { name: string; indent?: number }) {
   const getFileIcon = (filename: string) => {
-    if (filename.endsWith('.py')) return '🐍';
-    if (filename.endsWith('.yaml') || filename.endsWith('.yml')) return '⚙️';
-    if (filename.endsWith('.md')) return '📄';
-    if (filename.endsWith('.sh')) return '🔧';
-    if (filename.endsWith('.txt')) return '📝';
-    if (filename === 'Dockerfile') return '🐳';
-    if (filename === '.gitignore') return '👁️';
-    return '📄';
+    if (filename.endsWith('.py')) return { icon: '🐍', color: '#3776ab' };
+    if (filename.endsWith('.yaml') || filename.endsWith('.yml')) return { icon: '⚙️', color: '#cb171e' };
+    if (filename.endsWith('.md')) return { icon: '📝', color: '#083fa1' };
+    if (filename.endsWith('.sh')) return { icon: '⚙️', color: '#4eaa25' };
+    if (filename.endsWith('.txt')) return { icon: '📋', color: '#6b7280' };
+    if (filename === 'Dockerfile') return { icon: '🐳', color: '#2496ed' };
+    if (filename === '.gitignore') return { icon: '📋', color: '#f05032' };
+    return { icon: '📄', color: '#6b7280' };
   };
+
+  const { icon } = getFileIcon(name);
 
   return (
     <div
-      className="flex items-center gap-2"
+      className="flex items-center gap-2 py-0.5 hover:bg-white/5 rounded px-1 cursor-default"
       style={{ paddingLeft: `${indent * 20}px` }}
     >
-      <span style={{ color: colors.textMuted }}>├──</span>
-      <span>{getFileIcon(name)}</span>
+      <span className="font-mono text-xs" style={{ color: colors.textMuted }}>├──</span>
+      <span className="text-sm">{icon}</span>
       <span style={{ color: colors.textSecondary }}>{name}</span>
     </div>
   );
