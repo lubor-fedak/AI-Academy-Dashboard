@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { getSupabaseClient } from '@/lib/supabase';
+import { createBrowserClient } from '@supabase/ssr';
 import type { Participant, UserStatus } from '@/lib/types';
 
 interface AuthContextType {
@@ -37,6 +37,36 @@ const AuthContext = createContext<AuthContextType>({
   signInWithMagicLink: async () => ({ error: null }),
 });
 
+// Create Supabase client directly in component to avoid singleton issues
+function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
+
+// Session storage helpers
+const AUTH_STORAGE_KEY = 'ai-academy-auth';
+
+function saveAuthToStorage(user: User | null) {
+  if (typeof window === 'undefined') return;
+  if (user) {
+    sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ userId: user.id, email: user.email }));
+  } else {
+    sessionStorage.removeItem(AUTH_STORAGE_KEY);
+  }
+}
+
+function getAuthFromStorage(): { userId: string; email: string } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const data = sessionStorage.getItem(AUTH_STORAGE_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -45,27 +75,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isActualAdmin, setIsActualAdmin] = useState(false);
   const [viewAsUser, setViewAsUser] = useState(false);
   const [userStatus, setUserStatus] = useState<UserStatus | 'no_profile' | null>(null);
+  const [supabase] = useState(() => createClient());
 
-  const authInitialized = useRef(false);
   const isAdmin = isActualAdmin && !viewAsUser;
 
-  // Get supabase client safely
-  const getClient = useCallback(() => {
-    try {
-      return getSupabaseClient();
-    } catch (e) {
-      console.error('Failed to get Supabase client:', e);
-      return null;
-    }
-  }, []);
-
-  // Fetch participant - simple version without abort
+  // Fetch participant
   const fetchParticipant = useCallback(async (authUser: User): Promise<Participant | null> => {
-    const supabase = getClient();
-    if (!supabase) return null;
-
     try {
-      // Try email first
       if (authUser.email) {
         const { data } = await supabase
           .from('participants')
@@ -75,7 +91,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data) return data as Participant;
       }
 
-      // Try github_username
       if (authUser.user_metadata?.user_name) {
         const { data } = await supabase
           .from('participants')
@@ -85,26 +100,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data) return data as Participant;
       }
 
-      // Try auth_user_id
       const { data } = await supabase
         .from('participants')
         .select('*')
         .eq('auth_user_id', authUser.id)
         .single();
-      if (data) return data as Participant;
-
-      return null;
+      return data as Participant | null;
     } catch (error) {
       console.error('fetchParticipant error:', error);
       return null;
     }
-  }, [getClient]);
+  }, [supabase]);
 
   // Check admin status
   const checkAdminUser = useCallback(async (userId: string): Promise<boolean> => {
-    const supabase = getClient();
-    if (!supabase) return false;
-
     try {
       const { data } = await supabase
         .from('admin_users')
@@ -116,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       return false;
     }
-  }, [getClient]);
+  }, [supabase]);
 
   const refreshParticipant = useCallback(async () => {
     if (user) {
@@ -129,74 +138,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, fetchParticipant]);
 
+  // Load user data after we have a user
+  const loadUserData = useCallback(async (authUser: User) => {
+    try {
+      const participantData = await fetchParticipant(authUser);
+      if (participantData) {
+        setParticipant(participantData);
+        setUserStatus('approved');
+        setIsActualAdmin(participantData.is_admin || false);
+      } else {
+        setUserStatus('no_profile');
+      }
+
+      const isAdminUser = await checkAdminUser(authUser.id);
+      if (isAdminUser) {
+        setIsActualAdmin(true);
+        setUserStatus('approved');
+      }
+    } catch (e) {
+      console.error('loadUserData error:', e);
+      setUserStatus('approved'); // Assume approved if we can't check
+    }
+  }, [fetchParticipant, checkAdminUser]);
+
   useEffect(() => {
-    if (authInitialized.current) return;
-    authInitialized.current = true;
+    console.log('[Auth] Initializing...');
 
-    const supabase = getClient();
-
-    if (!supabase) {
-      console.error('No Supabase client available');
-      setIsLoading(false);
-      return;
+    // Check if we might be logged in (from sessionStorage)
+    const storedAuth = getAuthFromStorage();
+    if (storedAuth) {
+      console.log('[Auth] Found stored auth for:', storedAuth.email);
     }
 
     const initAuth = async () => {
       try {
-        // Get session - no timeout, just wait for it
-        console.log('Getting session...');
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        console.log('Session result:', initialSession ? 'found' : 'not found');
+        console.log('[Auth] Getting session...');
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
 
-        // No session = not logged in
-        if (!initialSession) {
-          console.log('No session found');
+        if (error) {
+          console.error('[Auth] getSession error:', error);
           setIsLoading(false);
           return;
         }
 
-        console.log('Session found, user:', initialSession.user.email);
+        if (initialSession?.user) {
+          console.log('[Auth] Session found for:', initialSession.user.email);
+          setSession(initialSession);
+          setUser(initialSession.user);
+          saveAuthToStorage(initialSession.user);
+          setIsLoading(false);
 
-        // Set user immediately to unblock UI
-        setSession(initialSession);
-        setUser(initialSession.user);
-        setIsLoading(false); // UNBLOCK UI NOW
-
-        // Load participant data in background (non-blocking)
-        try {
-          const participantData = await fetchParticipant(initialSession.user);
-
-          if (participantData) {
-            setParticipant(participantData);
-            setUserStatus('approved');
-            setIsActualAdmin(participantData.is_admin || false);
-
-            // Link auth_user_id if needed
-            if (!participantData.auth_user_id) {
-              supabase
-                .from('participants')
-                .update({ auth_user_id: initialSession.user.id })
-                .eq('id', participantData.id)
-                .then(() => {});
-            }
-          } else {
-            setUserStatus('no_profile');
-          }
-
-          // Check admin status
-          const isAdminUser = await checkAdminUser(initialSession.user.id);
-          if (isAdminUser) {
-            setIsActualAdmin(true);
-            setUserStatus('approved');
-          }
-        } catch (e) {
-          console.error('Background data load error:', e);
-          // Still keep user logged in even if participant fetch fails
-          setUserStatus('approved');
+          // Load additional data in background
+          await loadUserData(initialSession.user);
+        } else {
+          console.log('[Auth] No session found');
+          saveAuthToStorage(null);
+          setIsLoading(false);
         }
-
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        console.error('[Auth] Init error:', error);
         setIsLoading(false);
       }
     };
@@ -206,7 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        console.log('Auth state change:', event);
+        console.log('[Auth] State change:', event, newSession?.user?.email);
 
         if (event === 'SIGNED_OUT') {
           setSession(null);
@@ -214,31 +214,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setParticipant(null);
           setIsActualAdmin(false);
           setUserStatus(null);
+          saveAuthToStorage(null);
           return;
         }
 
-        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && newSession?.user) {
+        if (newSession?.user) {
           setSession(newSession);
           setUser(newSession.user);
+          saveAuthToStorage(newSession.user);
 
-          try {
-            const participantData = await fetchParticipant(newSession.user);
-            if (participantData) {
-              setParticipant(participantData);
-              setUserStatus('approved');
-              setIsActualAdmin(participantData.is_admin || false);
-            } else {
-              setUserStatus('no_profile');
-            }
-
-            const isAdminUser = await checkAdminUser(newSession.user.id);
-            if (isAdminUser) {
-              setIsActualAdmin(true);
-              setUserStatus('approved');
-            }
-          } catch (e) {
-            console.error('Auth state change data load error:', e);
-            setUserStatus('approved');
+          if (event === 'SIGNED_IN') {
+            await loadUserData(newSession.user);
           }
         }
       }
@@ -247,32 +233,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [getClient, fetchParticipant, checkAdminUser]);
+  }, [supabase, loadUserData]);
 
   const signOut = useCallback(async () => {
-    const supabase = getClient();
-    if (supabase) {
-      await supabase.auth.signOut();
-    }
+    await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setParticipant(null);
     setIsActualAdmin(false);
     setUserStatus(null);
-  }, [getClient]);
+    saveAuthToStorage(null);
+  }, [supabase]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
-    const supabase = getClient();
-    if (!supabase) return { error: new Error('Supabase not available') };
-
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error as Error | null };
-  }, [getClient]);
+  }, [supabase]);
 
   const signInWithMagicLink = useCallback(async (email: string) => {
-    const supabase = getClient();
-    if (!supabase) return { error: new Error('Supabase not available') };
-
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -280,7 +258,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
     return { error: error as Error | null };
-  }, [getClient]);
+  }, [supabase]);
 
   return (
     <AuthContext.Provider
