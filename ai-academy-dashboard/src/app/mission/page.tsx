@@ -56,11 +56,11 @@ export default async function MissionPage() {
   const pilotClients = (pilotClientsResult.data as PilotClient[]) ?? [];
   const intelDrops = (intelDropsResult.data as IntelDrop[]) ?? [];
 
-  // Filter mission days to only show unlocked ones (unlock_date <= today OR is_visible = true)
+  // Filter mission days to only show unlocked ones (unlock_date <= today)
   const todayStr = new Date().toISOString().split('T')[0];
   const missionDays = allMissionDays.filter(md => {
-    if (!md.unlock_date) return md.is_visible;
-    return new Date(md.unlock_date) <= new Date(todayStr) || md.is_visible;
+    if (!md.unlock_date) return false; // No unlock date = not unlocked
+    return new Date(md.unlock_date) <= new Date(todayStr);
   });
   const participant = participantResult.data as {
     id: string;

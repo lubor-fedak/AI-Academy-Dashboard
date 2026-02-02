@@ -72,11 +72,11 @@ export default async function MyProgressPage() {
     .select('*')
     .order('day');
 
-  // Filter mission days to only show unlocked ones (unlock_date <= today OR is_visible = true)
+  // Filter mission days to only show unlocked ones (unlock_date <= today)
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
   const missionDays = (allMissionDays ?? []).filter(md => {
-    if (!md.unlock_date) return md.is_visible;
-    return new Date(md.unlock_date) <= new Date(today) || md.is_visible;
+    if (!md.unlock_date) return false; // No unlock date = not unlocked
+    return new Date(md.unlock_date) <= new Date(today);
   });
 
   // Fetch submissions to calculate progress

@@ -36,12 +36,13 @@ export default async function MyDashboardPage() {
   const teamProgress = (teamProgressResult.data as TeamProgress[]) ?? [];
   const missionDays = (missionDaysResult.data as Pick<MissionDay, 'day' | 'unlock_date' | 'is_visible'>[]) ?? [];
 
-  // Determine which days are unlocked (unlock_date <= today OR is_visible = true)
+  // Determine which days are unlocked (unlock_date <= today)
+  // Note: is_visible is for admin override, unlock_date is the primary control
   const unlockedDays = new Set(
     missionDays
       .filter(md => {
-        if (!md.unlock_date) return md.is_visible;
-        return new Date(md.unlock_date) <= new Date(today) || md.is_visible;
+        if (!md.unlock_date) return false; // No unlock date = not unlocked
+        return new Date(md.unlock_date) <= new Date(today);
       })
       .map(md => md.day)
   );
