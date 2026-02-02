@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabase';
 import type { Participant, UserStatus } from '@/lib/types';
@@ -48,12 +48,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const authInitialized = useRef(false);
   const isAdmin = isActualAdmin && !viewAsUser;
-  const supabase = getSupabaseClient();
 
-  // Fetch participant with error handling
-  const fetchParticipant = async (authUser: User): Promise<Participant | null> => {
+  // Get supabase client safely
+  const getClient = useCallback(() => {
     try {
-      // Try to find by email first
+      return getSupabaseClient();
+    } catch (e) {
+      console.error('Failed to get Supabase client:', e);
+      return null;
+    }
+  }, []);
+
+  // Fetch participant - simple version without abort
+  const fetchParticipant = useCallback(async (authUser: User): Promise<Participant | null> => {
+    const supabase = getClient();
+    if (!supabase) return null;
+
+    try {
+      // Try email first
       if (authUser.email) {
         const { data } = await supabase
           .from('participants')
@@ -63,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data) return data as Participant;
       }
 
-      // Try by github_username
+      // Try github_username
       if (authUser.user_metadata?.user_name) {
         const { data } = await supabase
           .from('participants')
@@ -73,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data) return data as Participant;
       }
 
-      // Try by auth_user_id
+      // Try auth_user_id
       const { data } = await supabase
         .from('participants')
         .select('*')
@@ -86,10 +98,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('fetchParticipant error:', error);
       return null;
     }
-  };
+  }, [getClient]);
 
   // Check admin status
-  const checkAdminUser = async (userId: string): Promise<boolean> => {
+  const checkAdminUser = useCallback(async (userId: string): Promise<boolean> => {
+    const supabase = getClient();
+    if (!supabase) return false;
+
     try {
       const { data } = await supabase
         .from('admin_users')
@@ -101,9 +116,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       return false;
     }
-  };
+  }, [getClient]);
 
-  const refreshParticipant = async () => {
+  const refreshParticipant = useCallback(async () => {
     if (user) {
       const participantData = await fetchParticipant(user);
       if (participantData) {
@@ -112,74 +127,84 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsActualAdmin(participantData.is_admin || false);
       }
     }
-  };
+  }, [user, fetchParticipant]);
 
   useEffect(() => {
     if (authInitialized.current) return;
     authInitialized.current = true;
 
-    // Safety timeout - always set isLoading to false after 10 seconds
-    const safetyTimeout = setTimeout(() => {
-      console.warn('Auth initialization timed out');
+    const supabase = getClient();
+
+    if (!supabase) {
+      console.error('No Supabase client available');
       setIsLoading(false);
-    }, 10000);
+      return;
+    }
 
     const initAuth = async () => {
       try {
-        // Get session
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        // Quick session check with race against timeout
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+          setTimeout(() => {
+            console.log('Session check timed out');
+            resolve({ data: { session: null } });
+          }, 3000)
+        );
 
+        const result = await Promise.race([sessionPromise, timeoutPromise]);
+        const initialSession = result.data.session;
+
+        // No session = not logged in
         if (!initialSession) {
+          console.log('No session found');
           setIsLoading(false);
-          clearTimeout(safetyTimeout);
           return;
         }
 
-        // Validate session
-        const { data: { user: validatedUser }, error } = await supabase.auth.getUser();
+        console.log('Session found, user:', initialSession.user.email);
 
-        if (error || !validatedUser) {
-          console.log('Session validation failed:', error?.message);
-          setIsLoading(false);
-          clearTimeout(safetyTimeout);
-          return;
-        }
-
+        // Set user immediately to unblock UI
         setSession(initialSession);
-        setUser(validatedUser);
+        setUser(initialSession.user);
+        setIsLoading(false); // UNBLOCK UI NOW
 
-        // Fetch participant
-        const participantData = await fetchParticipant(validatedUser);
+        // Load participant data in background (non-blocking)
+        try {
+          const participantData = await fetchParticipant(initialSession.user);
 
-        if (participantData) {
-          setParticipant(participantData);
-          setUserStatus('approved');
-          setIsActualAdmin(participantData.is_admin || false);
+          if (participantData) {
+            setParticipant(participantData);
+            setUserStatus('approved');
+            setIsActualAdmin(participantData.is_admin || false);
 
-          // Link auth_user_id if needed
-          if (!participantData.auth_user_id) {
-            supabase
-              .from('participants')
-              .update({ auth_user_id: validatedUser.id })
-              .eq('id', participantData.id)
-              .then(() => {});
+            // Link auth_user_id if needed
+            if (!participantData.auth_user_id) {
+              supabase
+                .from('participants')
+                .update({ auth_user_id: initialSession.user.id })
+                .eq('id', participantData.id)
+                .then(() => {});
+            }
+          } else {
+            setUserStatus('no_profile');
           }
-        } else {
-          setUserStatus('no_profile');
-        }
 
-        // Check admin_users table
-        const isAdminUser = await checkAdminUser(validatedUser.id);
-        if (isAdminUser) {
-          setIsActualAdmin(true);
+          // Check admin status
+          const isAdminUser = await checkAdminUser(initialSession.user.id);
+          if (isAdminUser) {
+            setIsActualAdmin(true);
+            setUserStatus('approved');
+          }
+        } catch (e) {
+          console.error('Background data load error:', e);
+          // Still keep user logged in even if participant fetch fails
           setUserStatus('approved');
         }
 
       } catch (error) {
         console.error('Auth initialization error:', error);
-      } finally {
         setIsLoading(false);
-        clearTimeout(safetyTimeout);
       }
     };
 
@@ -188,6 +213,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
+        console.log('Auth state change:', event);
+
         if (event === 'SIGNED_OUT') {
           setSession(null);
           setUser(null);
@@ -197,7 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (event === 'SIGNED_IN' && newSession?.user) {
+        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && newSession?.user) {
           setSession(newSession);
           setUser(newSession.user);
 
@@ -216,35 +243,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setIsActualAdmin(true);
               setUserStatus('approved');
             }
-          } catch (error) {
-            console.error('Auth state change error:', error);
+          } catch (e) {
+            console.error('Auth state change data load error:', e);
+            setUserStatus('approved');
           }
         }
       }
     );
 
     return () => {
-      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [getClient, fetchParticipant, checkAdminUser]);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const signOut = useCallback(async () => {
+    const supabase = getClient();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
     setUser(null);
     setSession(null);
     setParticipant(null);
     setIsActualAdmin(false);
     setUserStatus(null);
-  };
+  }, [getClient]);
 
-  const signInWithEmail = async (email: string, password: string) => {
+  const signInWithEmail = useCallback(async (email: string, password: string) => {
+    const supabase = getClient();
+    if (!supabase) return { error: new Error('Supabase not available') };
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error as Error | null };
-  };
+  }, [getClient]);
 
-  const signInWithMagicLink = async (email: string) => {
+  const signInWithMagicLink = useCallback(async (email: string) => {
+    const supabase = getClient();
+    if (!supabase) return { error: new Error('Supabase not available') };
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -252,7 +287,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
     return { error: error as Error | null };
-  };
+  }, [getClient]);
 
   return (
     <AuthContext.Provider
