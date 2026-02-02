@@ -11,6 +11,13 @@ const PUBLIC_ROUTES = [
   '/login',
   '/auth/callback',
   '/offline',
+  '/help',
+  '/register',
+];
+
+// Routes that are public but checked by prefix (not exact match)
+const PUBLIC_PREFIXES = [
+  '/presentations',
 ];
 
 // Routes that only require authentication (not approval)
@@ -37,7 +44,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
   useEffect(() => {
     if (isLoading) return;
 
-    const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
+    const isPublicRoute = PUBLIC_ROUTES.includes(pathname) ||
+      PUBLIC_PREFIXES.some(prefix => pathname.startsWith(prefix));
     const isAuthOnlyRoute = AUTH_ONLY_ROUTES.some(route => pathname.startsWith(route));
     const isAdminRoute = ADMIN_ROUTES.some(route => pathname.startsWith(route));
 
@@ -112,7 +120,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }
 
   // Check access
-  const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
+  const isPublicRoute = PUBLIC_ROUTES.includes(pathname) ||
+    PUBLIC_PREFIXES.some(prefix => pathname.startsWith(prefix));
   const isAuthOnlyRoute = AUTH_ONLY_ROUTES.some(route => pathname.startsWith(route));
   const isAdminRoute = ADMIN_ROUTES.some(route => pathname.startsWith(route));
 

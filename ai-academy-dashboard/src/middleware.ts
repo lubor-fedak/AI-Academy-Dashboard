@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 import { logSecurityEvent, generateCorrelationId } from '@/lib/logger';
 
 // ============================================================================
@@ -137,18 +138,72 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
 }
 
 // ============================================================================
+// Supabase Session Refresh
+// ============================================================================
+
+async function updateSession(request: NextRequest): Promise<NextResponse> {
+  // Create a response that we'll modify
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // If env vars are missing, just continue without session refresh
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return response;
+  }
+
+  const supabase = createServerClient(
+    supabaseUrl,
+    supabaseAnonKey,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          // Update request cookies
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          // Create new response with updated request
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          });
+          // Set cookies on the response
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  // This refreshes the session if expired - REQUIRED for Server Components
+  // https://supabase.com/docs/guides/auth/server-side/nextjs
+  await supabase.auth.getUser();
+
+  return response;
+}
+
+// ============================================================================
 // Middleware Function
 // ============================================================================
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip middleware for static files and non-API routes (except cron)
+  // Skip middleware completely for static files
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/static') ||
-    pathname.includes('.') ||
-    (!pathname.startsWith('/api') && !pathname.startsWith('/api/cron'))
+    pathname.includes('.')
   ) {
     return NextResponse.next();
   }
@@ -156,18 +211,21 @@ export function middleware(request: NextRequest) {
   // Generate correlation ID for request tracing
   const correlationId = generateCorrelationId();
 
-  // Get client IP
+  // IMPORTANT: Refresh Supabase session for ALL routes (pages and API)
+  // This ensures the session cookie is refreshed before it expires
+  let response = await updateSession(request);
+
+  // Get client IP for rate limiting
   const clientIp = getClientIp(request);
 
-  // Skip rate limiting for cron jobs (they have their own auth)
-  if (pathname.startsWith('/api/cron')) {
-    const response = NextResponse.next();
-    response.headers.set('X-Correlation-Id', correlationId);
-    return addSecurityHeaders(response);
-  }
-
-  // Apply rate limiting to API routes
+  // Apply rate limiting only to API routes (not pages)
   if (pathname.startsWith('/api')) {
+    // Skip rate limiting for cron jobs (they have their own auth)
+    if (pathname.startsWith('/api/cron')) {
+      response.headers.set('X-Correlation-Id', correlationId);
+      return addSecurityHeaders(response);
+    }
+
     const { allowed, remaining, resetTime } = checkRateLimit(clientIp, pathname);
 
     if (!allowed) {
@@ -177,7 +235,7 @@ export function middleware(request: NextRequest) {
         correlationId,
       });
 
-      const response = NextResponse.json(
+      const errorResponse = NextResponse.json(
         {
           error: 'Too many requests',
           message: 'Please wait before making more requests',
@@ -186,25 +244,20 @@ export function middleware(request: NextRequest) {
         { status: 429 }
       );
 
-      response.headers.set('Retry-After', String(Math.ceil((resetTime - Date.now()) / 1000)));
-      response.headers.set('X-RateLimit-Remaining', '0');
-      response.headers.set('X-RateLimit-Reset', String(Math.ceil(resetTime / 1000)));
-      response.headers.set('X-Correlation-Id', correlationId);
+      errorResponse.headers.set('Retry-After', String(Math.ceil((resetTime - Date.now()) / 1000)));
+      errorResponse.headers.set('X-RateLimit-Remaining', '0');
+      errorResponse.headers.set('X-RateLimit-Reset', String(Math.ceil(resetTime / 1000)));
+      errorResponse.headers.set('X-Correlation-Id', correlationId);
 
-      return addSecurityHeaders(response);
+      return addSecurityHeaders(errorResponse);
     }
 
-    // Continue with request
-    const response = NextResponse.next();
+    // Add rate limit headers to successful API responses
     response.headers.set('X-RateLimit-Remaining', String(remaining));
     response.headers.set('X-RateLimit-Reset', String(Math.ceil(resetTime / 1000)));
-    response.headers.set('X-Correlation-Id', correlationId);
-
-    return addSecurityHeaders(response);
   }
 
-  // For non-API routes, just add security headers
-  const response = NextResponse.next();
+  // Add correlation ID and security headers to all responses
   response.headers.set('X-Correlation-Id', correlationId);
   return addSecurityHeaders(response);
 }
@@ -217,8 +270,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder files
+     * - public folder files (images, icons, etc.)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };
