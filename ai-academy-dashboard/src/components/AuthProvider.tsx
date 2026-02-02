@@ -143,17 +143,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initAuth = async () => {
       try {
-        // Quick session check with race against timeout
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
-          setTimeout(() => {
-            console.log('Session check timed out');
-            resolve({ data: { session: null } });
-          }, 3000)
-        );
-
-        const result = await Promise.race([sessionPromise, timeoutPromise]);
-        const initialSession = result.data.session;
+        // Get session - no timeout, just wait for it
+        console.log('Getting session...');
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        console.log('Session result:', initialSession ? 'found' : 'not found');
 
         // No session = not logged in
         if (!initialSession) {
