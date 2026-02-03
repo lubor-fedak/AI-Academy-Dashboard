@@ -45,11 +45,11 @@ export default async function Dashboard() {
 
   try {
     const [participantsResult, submissionsResult, activityResult, assignmentsResult] = await Promise.all([
-      supabase.from('participants').select('id', { count: 'exact', head: true }),
+      supabase.from('public_participants').select('id', { count: 'exact', head: true }),
       supabase.from('submissions').select('id', { count: 'exact', head: true }),
       supabase
-        .from('activity_log')
-        .select('*, participants(name, github_username, avatar_url)')
+        .from('public_activity_log')
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(10),
       supabase

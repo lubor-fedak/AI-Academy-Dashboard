@@ -257,7 +257,30 @@ ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
 -- Public read for leaderboard and activity
 CREATE POLICY "Public read leaderboard" ON leaderboard FOR SELECT USING (true);
 CREATE POLICY "Public read activity" ON activity_log FOR SELECT USING (true);
-CREATE POLICY "Public read participants" ON participants FOR SELECT USING (true);
+
+-- Restrict participants reads to service role, admins, or the authenticated user
+CREATE POLICY "Service read participants" ON participants
+  FOR SELECT
+  USING (current_setting('role', true) = 'service_role');
+
+CREATE POLICY "Authenticated read own participant" ON participants
+  FOR SELECT
+  USING (
+    auth.uid() IS NOT NULL AND (
+      auth.uid()::text = auth_user_id::text
+      OR auth.jwt() ->> 'email' = email
+    )
+  );
+
+CREATE POLICY "Admin read participants" ON participants
+  FOR SELECT
+  USING (
+    auth.uid() IS NOT NULL AND EXISTS (
+      SELECT 1 FROM admin_users au
+      WHERE au.user_id = auth.uid()
+        AND au.is_active = true
+    )
+  );
 
 -- Authenticated insert for submissions (webhook)
 CREATE POLICY "Service insert submissions" ON submissions FOR INSERT WITH CHECK (true);
@@ -266,6 +289,36 @@ CREATE POLICY "Public read submissions" ON submissions FOR SELECT USING (true);
 -- =============================================
 -- VIEWS
 -- =============================================
+
+-- Public-safe participants view (no email or sensitive fields)
+CREATE VIEW public_participants AS
+SELECT
+    id,
+    name,
+    github_username,
+    role,
+    team,
+    stream,
+    avatar_url,
+    repo_url
+FROM participants;
+
+-- Public activity log with participant details (safe fields only)
+CREATE VIEW public_activity_log AS
+SELECT
+    al.id,
+    al.participant_id,
+    al.action,
+    al.details,
+    al.created_at,
+    p.name,
+    p.github_username,
+    p.avatar_url,
+    p.role,
+    p.team,
+    p.stream
+FROM activity_log al
+LEFT JOIN public_participants p ON p.id = al.participant_id;
 
 -- Leaderboard with participant details
 CREATE VIEW leaderboard_view AS
@@ -282,7 +335,7 @@ SELECT
     l.avg_mentor_rating,
     l.current_streak
 FROM leaderboard l
-JOIN participants p ON l.participant_id = p.id
+JOIN public_participants p ON l.participant_id = p.id
 ORDER BY l.rank;
 
 -- Progress matrix (completion by role and day)
@@ -294,7 +347,7 @@ SELECT
     COUNT(s.id) as submitted,
     COUNT(p.id) as total,
     ROUND(COUNT(s.id)::decimal / NULLIF(COUNT(p.id), 0) * 100, 0) as completion_pct
-FROM participants p
+FROM public_participants p
 CROSS JOIN assignments a
 LEFT JOIN submissions s ON s.participant_id = p.id AND s.assignment_id = a.id
 GROUP BY p.role, a.day, a.type
@@ -307,7 +360,7 @@ SELECT
     SUM(l.total_points) as team_points,
     AVG(l.total_submissions) as avg_submissions,
     AVG(l.avg_mentor_rating) as avg_rating
-FROM participants p
+FROM public_participants p
 JOIN leaderboard l ON p.id = l.participant_id
 GROUP BY p.team
 ORDER BY team_points DESC;

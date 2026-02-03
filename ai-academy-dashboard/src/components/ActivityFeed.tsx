@@ -36,8 +36,8 @@ export function ActivityFeed({ initialData, limit = 10 }: ActivityFeedProps) {
         async (payload) => {
           // Fetch the new activity with participant details
           const { data: newActivity, error } = await supabase
-            .from('activity_log')
-            .select('*, participants(name, github_username, avatar_url)')
+            .from('public_activity_log')
+            .select('*')
             .eq('id', payload.new.id)
             .single();
 
@@ -132,9 +132,9 @@ export function ActivityFeed({ initialData, limit = 10 }: ActivityFeedProps) {
             >
               <div className="mt-1">{getActivityIcon(activity.action)}</div>
               <Avatar className="h-8 w-8">
-                <AvatarImage src={activity.participants?.avatar_url ?? undefined} />
+                <AvatarImage src={activity.avatar_url ?? undefined} />
                 <AvatarFallback>
-                  {activity.participants?.name
+                  {activity.name
                     ?.split(' ')
                     .map((n) => n[0])
                     .join('') || '?'}
@@ -143,10 +143,10 @@ export function ActivityFeed({ initialData, limit = 10 }: ActivityFeedProps) {
               <div className="flex-1 min-w-0">
                 <p className="text-sm">
                   <Link
-                    href={`/participant/${activity.participants?.github_username}`}
+                    href={`/participant/${activity.github_username}`}
                     className="font-medium hover:underline"
                   >
-                    {activity.participants?.name || 'Unknown'}
+                    {activity.name || 'Unknown'}
                   </Link>{' '}
                   {getActivityText(activity)}
                 </p>
