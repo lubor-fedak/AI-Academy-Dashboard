@@ -1,17 +1,17 @@
 # AI Academy 2026 - [YOUR NAME]
 
-> Môj repozitár pre Kyndryl AI Academy
+> My repository for Kyndryl AI Academy
 
-## O mne
+## About Me
 
 | | |
 |---|---|
-| **Meno** | [Tvoje meno] |
-| **Rola** | [FDE / AI-SE / AI-PM / AI-DA / AI-DS / AI-SEC / AI-FE] |
-| **Tím** | [Alpha / Beta / Gamma / Delta / Epsilon / Zeta / Eta / Theta] |
+| **Name** | [Your name] |
+| **Role** | [FDE / AI-SE / AI-PM / AI-DA / AI-DS / AI-SEC / AI-FE] |
+| **Team** | [Alpha / Beta / Gamma / Delta / Epsilon / Zeta / Eta / Theta] |
 | **Stream** | [Tech / Business] |
 
-## Štruktúra Repozitára
+## Repository Structure
 
 ```text
 ├── week-01-foundations/
@@ -70,10 +70,10 @@
     └── week-05.md
 ```
 
-## Moje Checkpointy
+## My Checkpoints
 
-| Týždeň | Deadline | Status | Link |
-|--------|----------|--------|------|
+| Week | Deadline | Status | Link |
+|------|----------|--------|------|
 | Week 1 | Feb 6, 17:00 CET | ⏳ | [→](./week-01-foundations/week-01-checkpoint/) |
 | Week 2 | Feb 13, 17:00 CET | ⏳ | [→](./week-02-deep-dive/week-02-checkpoint/) |
 | Week 4 | Feb 27, 17:00 CET | ⏳ | [→](./week-04-team-build/week-04-checkpoint/) |
@@ -81,8 +81,8 @@
 
 ## Week 1: Common Foundations (Feb 2-8)
 
-| Deň | Téma | Deliverable | Status |
-|-----|------|-------------|--------|
+| Day | Topic | Deliverable | Status |
+|-----|-------|-------------|--------|
 | 1 | AI Landscape | CEO Briefing | ⏳ |
 | 2 | Prompt Engineering | Hallucination Fix | ⏳ |
 | 3 | Agentic Patterns | Architecture Simplification | ⏳ |
@@ -91,7 +91,7 @@
 
 ## Week 2: Role Deep Dive (Feb 9-15)
 
-| Deň | Deliverable | Status |
+| Day | Deliverable | Status |
 |-----|-------------|--------|
 | 6 | Core Skill #1 | ⏳ |
 | 7 | Core Skill #2 | ⏳ |
@@ -101,7 +101,7 @@
 
 ## Week 4: Team Projects - Build (Feb 23 - Mar 1)
 
-| Deň | Milestone | Status |
+| Day | Milestone | Status |
 |-----|-----------|--------|
 | 11 | Team Charter | ⏳ |
 | 12 | Problem Statement | ⏳ |
@@ -111,7 +111,7 @@
 
 ## Week 5: Polish + Certification (Mar 2-14)
 
-| Deň | Focus | Status |
+| Day | Focus | Status |
 |-----|-------|--------|
 | 16 | Integration | ⏳ |
 | 17 | Testing | ⏳ |
@@ -124,12 +124,12 @@
 | 24 | Dry Run | ⏳ |
 | 25 | Week 5 Checkpoint | ⏳ |
 
-## Môj Progres
+## My Progress
 
-<!-- Toto sa bude automaticky aktualizovať -->
+<!-- This will be automatically updated -->
 ![Progress](https://ai-academy-dashboard.vercel.app/api/badge/[GITHUB_USERNAME])
 
-## Reflexie
+## Reflections
 
 - [Week 1 Reflection](./reflections/week-01.md)
 - [Week 2 Reflection](./reflections/week-02.md)

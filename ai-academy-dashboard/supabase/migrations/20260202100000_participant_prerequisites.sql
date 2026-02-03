@@ -49,7 +49,7 @@ INSERT INTO prerequisite_items (code, category, name, description, help_url, is_
 ('google_antigravity', 'google', 'Google Antigravity', 'Access to Google Antigravity internal platform', NULL, false, 23),
 
 -- Collaboration Tools
-('slack_channel', 'collaboration', 'Slack #ai-academy', 'Joined the #ai-academy Slack channel', NULL, true, 30),
+('teams_channel', 'collaboration', 'MS Teams #ai-academy', 'Joined the #ai-academy MS Teams channel', NULL, true, 30),
 ('mural_access', 'collaboration', 'Mural/Miro', 'Access to visual collaboration tools (Mural or Miro)', 'https://mural.co', false, 31),
 
 -- Technical Setup (Advanced)

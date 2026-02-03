@@ -43,7 +43,7 @@ Student submissions must include an HTML comment in their README marking the sub
 
 Self-ratings are parsed from:
 ```
-**Celkové hodnotenie:** X/5
+**Overall rating:** X/5
 ```
 
 ### Achievement System

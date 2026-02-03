@@ -1,22 +1,22 @@
-# Deň 1: Agent Foundations
+# Day 1: Agent Foundations
 
-> Dátum: [YYYY-MM-DD]
+> Date: [YYYY-MM-DD]
 > Status: ⏳ In Progress / ✅ Complete / 🔄 Needs Revision
 
-## 🤖 Môj Agent
+## 🤖 My Agent
 
-**Názov:** [Názov tvojho agenta]
-**Rola:** [Tvoja rola v AI projekte]
+**Name:** [Your agent's name]
+**Role:** [Your role in the AI project]
 
 ### System Prompt
 
 ```markdown
 # [ROLE] Agent v1.0
 
-## Identita
-[Sem vlož svoj system prompt]
+## Identity
+[Insert your system prompt here]
 
-## Schopnosti
+## Capabilities
 - ...
 - ...
 
@@ -24,51 +24,54 @@
 - ...
 ```
 
-### Ukážka konverzácie
+### Conversation Example
 
-```
-User: [Príklad otázky]
-Agent: [Odpoveď agenta]
+```text
+User: [Example question]
+Agent: [Agent's response]
 
 User: [Follow-up]
-Agent: [Odpoveď]
+Agent: [Response]
 ```
 
 ## 🔧 Tool Implementation
 
-**Tool name:** `[názov toolu]`
-**Čo robí:** [popis]
+**Tool name:** `[tool name]`
+**What it does:** [description]
 
 ```python
-# Ak máš kód, vlož sem
+# If you have code, insert here
 ```
 
 ## 📸 Screenshots
 
 ![Agent Demo](./screenshots/agent-demo.png)
 
-## 📝 Reflexia
+## 📝 Reflection
 
-### Čo som sa naučil:
+### What I learned
+
 - ...
 
-### Čo bolo náročné:
+### What was challenging
+
 - ...
 
-### Čo by som nabudúce spravil inak:
+### What I would do differently next time
+
 - ...
 
 ## ✅ Self-Assessment
 
-| Kritérium | Hodnotenie (1-5) |
-|-----------|------------------|
-| Agent odpovedá relevantne | ⭐⭐⭐⭐⭐ |
-| Tool funguje správne | ⭐⭐⭐⭐ |
-| Rozumiem ako to funguje | ⭐⭐⭐⭐ |
+| Criterion | Rating (1-5) |
+|-----------|--------------|
+| Agent responds relevantly | ⭐⭐⭐⭐⭐ |
+| Tool works correctly | ⭐⭐⭐⭐ |
+| I understand how it works | ⭐⭐⭐⭐ |
 
-**Celkové hodnotenie:** X/5
+**Overall rating:** X/5
 
 ---
 
-<!-- SUBMISSION TAG - NEMEŇ -->
+<!-- SUBMISSION TAG - DO NOT CHANGE -->
 <!-- submission:day-01:in-class -->
