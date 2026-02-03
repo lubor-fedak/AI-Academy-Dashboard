@@ -28,7 +28,7 @@ The system uses GitHub webhooks to automatically capture push events from studen
 
 ### Assignment Detection
 The system detects submissions by looking for predefined folder names in modified files:
-- In-class: `day-01-agent-foundations`, `day-02-rag-basics`, etc.
+- In-class: `day-01-agent-foundations`, `day-02-agentic-framework`, etc.
 - Homework: `homework/day-01`, `homework/day-02`, etc.
 
 Each assignment maps to a unique folder in the schema.

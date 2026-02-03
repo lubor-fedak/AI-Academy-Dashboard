@@ -24,7 +24,7 @@ function parseSelfRating(content: string): number | null {
 function detectSubmissionFolder(files: string[]): string | null {
   const submissionFolders = [
     'day-01-agent-foundations',
-    'day-02-rag-basics',
+    'day-02-agentic-framework',
     'day-03-multi-agent',
     'day-04-team-challenge',
     'day-05-mvp',

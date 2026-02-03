@@ -17,7 +17,7 @@
 ├── week-01-foundations/
 │   ├── day-01-ceo-briefing/
 │   │   └── README.md
-│   ├── day-02-hallucination-fix/
+│   ├── day-02-agentic-framework/
 │   │   └── README.md
 │   ├── day-03-architecture/
 │   │   └── README.md
@@ -84,7 +84,7 @@
 | Day | Topic | Deliverable | Status |
 |-----|-------|-------------|--------|
 | 1 | AI Landscape | CEO Briefing | ⏳ |
-| 2 | Prompt Engineering | Hallucination Fix | ⏳ |
+| 2 | Agentic AI Framework + Clerk Auth | Framework Understanding + Auth Implementation | ⏳ |
 | 3 | Agentic Patterns | Architecture Simplification | ⏳ |
 | 4 | Role Introduction | Role-specific artifact | ⏳ |
 | 5 | Checkpoint | Week 1 Submission | ⏳ |
