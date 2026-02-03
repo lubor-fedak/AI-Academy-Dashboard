@@ -143,7 +143,9 @@ export interface TeamProgress {
 
 // Extended types for UI
 export interface ActivityLogWithParticipant extends ActivityLog {
-  participants: Pick<Participant, 'name' | 'github_username' | 'avatar_url'> | null;
+  name: string | null;
+  github_username: string | null;
+  avatar_url: string | null;
 }
 
 export interface SubmissionWithDetails extends Submission {

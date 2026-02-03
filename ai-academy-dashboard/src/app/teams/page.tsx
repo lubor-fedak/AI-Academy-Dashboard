@@ -13,7 +13,7 @@ export default async function TeamsPage() {
 
   // Fetch all participants
   const { data: participants } = await supabase
-    .from('participants')
+    .from('public_participants')
     .select('*');
 
   // Fetch team progress

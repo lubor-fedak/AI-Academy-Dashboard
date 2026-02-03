@@ -47,7 +47,7 @@ export default async function ParticipantPage({ params }: ParticipantPageProps) 
 
   // Fetch participant
   const { data: participant, error } = await supabase
-    .from('participants')
+    .from('public_participants')
     .select('*')
     .eq('github_username', username)
     .single();
