@@ -118,6 +118,14 @@ async function checkAchievements(
 
 export async function POST(request: NextRequest) {
   const payload = await request.text();
+
+  // Basic payload size guard to reduce risk from extremely large bodies
+  if (payload.length > 1_000_000) {
+    return NextResponse.json(
+      { error: 'Payload too large' },
+      { status: 413 }
+    );
+  }
   const signature = request.headers.get('x-hub-signature-256');
 
   // Verify signature

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import sanitizeHtml from 'sanitize-html';
 
 // ============================================================================
 // Common Schemas
@@ -13,11 +14,13 @@ export const emailSchema = z
 
 // Sanitize strings to prevent XSS
 function sanitizeString(val: string): string {
-  return val
-    .trim()
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/javascript:/gi, '')
-    .replace(/on\w+=/gi, '');
+  const trimmed = val.trim();
+  // Use a robust HTML sanitizer to prevent XSS
+  // For user-provided text fields we strip HTML tags and attributes
+  return sanitizeHtml(trimmed, {
+    allowedTags: [],
+    allowedAttributes: {},
+  });
 }
 
 export const sanitizedStringSchema = z.string().transform(sanitizeString);
@@ -162,6 +165,33 @@ export const bulkReviewSchema = z
   );
 
 export type BulkReviewInput = z.infer<typeof bulkReviewSchema>;
+
+// ============================================================================
+// Comment Schemas
+// ============================================================================
+
+export const commentCreateSchema = z.object({
+  submission_id: uuidSchema,
+  content: z
+    .string()
+    .min(1, 'Comment content cannot be empty')
+    .max(2000, 'Comment content too long (max 2000 characters)')
+    .transform(sanitizeString),
+  parent_id: uuidSchema.optional().nullable(),
+});
+
+export type CommentCreateInput = z.infer<typeof commentCreateSchema>;
+
+export const commentUpdateSchema = z.object({
+  comment_id: uuidSchema,
+  content: z
+    .string()
+    .min(1, 'Comment content cannot be empty')
+    .max(2000, 'Comment content too long (max 2000 characters)')
+    .transform(sanitizeString),
+});
+
+export type CommentUpdateInput = z.infer<typeof commentUpdateSchema>;
 
 // ============================================================================
 // Live Session Schemas

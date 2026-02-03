@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient } from '@/lib/supabase';
 import { sendEmail } from '@/lib/email';
+import { requireAuth } from '@/lib/api-auth';
+import {
+  commentCreateSchema,
+  commentUpdateSchema,
+  validateInput,
+  formatValidationErrors,
+} from '@/lib/validation';
 
 // GET - Fetch comments for a submission
 export async function GET(request: NextRequest) {
@@ -73,29 +80,32 @@ export async function GET(request: NextRequest) {
 // POST - Create a new comment
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requireAuth(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
+
+    if (!authResult.user.participantId) {
+      return NextResponse.json(
+        { error: 'Participant profile required to comment' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
-    const { submission_id, author_id, content, parent_id } = body;
-
-    if (!submission_id || !author_id || !content) {
+    const validation = validateInput(commentCreateSchema, body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'submission_id, author_id, and content are required' },
+        {
+          error: 'Validation failed',
+          details: formatValidationErrors(validation.errors),
+        },
         { status: 400 }
       );
     }
 
-    if (content.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Comment content cannot be empty' },
-        { status: 400 }
-      );
-    }
-
-    if (content.length > 2000) {
-      return NextResponse.json(
-        { error: 'Comment content too long (max 2000 characters)' },
-        { status: 400 }
-      );
-    }
+    const { submission_id, content, parent_id } = validation.data;
+    const author_id = authResult.user.participantId;
 
     const supabase = createServiceSupabaseClient();
 
@@ -106,7 +116,7 @@ export async function POST(request: NextRequest) {
         submission_id,
         author_id,
         parent_id: parent_id || null,
-        content: content.trim(),
+        content,
         is_edited: false,
       })
       .select(`
@@ -163,7 +173,7 @@ export async function POST(request: NextRequest) {
 
     // If this is a reply, notify the parent comment author
     if (parent_id) {
-      const { data: parentComment } = await supabase
+        const { data: parentComment } = await supabase
         .from('comments')
         .select('author_id')
         .eq('id', parent_id)
@@ -220,15 +230,32 @@ export async function POST(request: NextRequest) {
 // PATCH - Update a comment
 export async function PATCH(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { comment_id, author_id, content } = body;
+    const authResult = await requireAuth(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
 
-    if (!comment_id || !author_id || !content) {
+    if (!authResult.user.participantId) {
       return NextResponse.json(
-        { error: 'comment_id, author_id, and content are required' },
+        { error: 'Participant profile required to edit comments' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const validation = validateInput(commentUpdateSchema, body);
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: formatValidationErrors(validation.errors),
+        },
         { status: 400 }
       );
     }
+
+    const { comment_id, content } = validation.data;
+    const author_id = authResult.user.participantId;
 
     const supabase = createServiceSupabaseClient();
 
@@ -250,7 +277,7 @@ export async function PATCH(request: NextRequest) {
     const { data: comment, error } = await supabase
       .from('comments')
       .update({
-        content: content.trim(),
+        content,
         updated_at: new Date().toISOString(),
         is_edited: true,
       })
@@ -285,13 +312,23 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete a comment
 export async function DELETE(request: NextRequest) {
   try {
+    const authResult = await requireAuth(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
+
+    if (!authResult.user.participantId) {
+      return NextResponse.json(
+        { error: 'Participant profile required to delete comments' },
+        { status: 403 }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const commentId = searchParams.get('comment_id');
-    const authorId = searchParams.get('author_id');
-
-    if (!commentId || !authorId) {
+    if (!commentId) {
       return NextResponse.json(
-        { error: 'comment_id and author_id are required' },
+        { error: 'comment_id is required' },
         { status: 400 }
       );
     }
@@ -305,7 +342,7 @@ export async function DELETE(request: NextRequest) {
       .eq('id', commentId)
       .single();
 
-    if (!existing || existing.author_id !== authorId) {
+    if (!existing || existing.author_id !== authResult.user.participantId) {
       return NextResponse.json(
         { error: 'Not authorized to delete this comment' },
         { status: 403 }

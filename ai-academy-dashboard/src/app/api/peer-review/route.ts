@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient } from '@/lib/supabase';
 import { sendEmail, getAchievementNotificationEmail } from '@/lib/email';
 import { ACHIEVEMENT_ICONS } from '@/lib/types';
+import { requireAdminOrMentor, requireAuth } from '@/lib/api-auth';
 
 const BONUS_POINTS_PER_REVIEW = 2;
 
 // GET - Fetch peer reviews for a participant
 export async function GET(request: NextRequest) {
   try {
+    const authResult = await requireAuth(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const reviewerId = searchParams.get('reviewer_id');
     const submissionId = searchParams.get('submission_id');
@@ -30,7 +36,18 @@ export async function GET(request: NextRequest) {
       `)
       .order('assigned_at', { ascending: false });
 
+    // If a reviewer_id filter is provided, restrict non-admin users to their own reviews
     if (reviewerId) {
+      if (
+        !authResult.user.isAdmin &&
+        authResult.user.participantId &&
+        authResult.user.participantId !== reviewerId
+      ) {
+        return NextResponse.json(
+          { error: 'Not authorized to view these peer reviews' },
+          { status: 403 }
+        );
+      }
       query = query.eq('reviewer_id', reviewerId);
     }
     if (submissionId) {
@@ -63,15 +80,21 @@ export async function GET(request: NextRequest) {
 // POST - Submit a peer review or assign new peer reviews
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requireAdminOrMentor(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
+
     const body = await request.json();
     const { action } = body;
 
     if (action === 'assign') {
+      // Only admins/mentors can assign reviews; enforced by requireAdminOrMentor
       return handleAssignReviews(body);
     } else if (action === 'submit') {
-      return handleSubmitReview(body);
+      return handleSubmitReview(body, authResult.user.participantId);
     } else if (action === 'skip') {
-      return handleSkipReview(body);
+      return handleSkipReview(body, authResult.user.participantId);
     }
 
     return NextResponse.json(
@@ -186,11 +209,14 @@ async function handleAssignReviews(body: {
 }
 
 // Submit a peer review
-async function handleSubmitReview(body: {
-  peer_review_id: string;
-  rating: number;
-  feedback?: string;
-}) {
+async function handleSubmitReview(
+  body: {
+    peer_review_id: string;
+    rating: number;
+    feedback?: string;
+  },
+  reviewerParticipantId?: string
+) {
   const { peer_review_id, rating, feedback } = body;
 
   if (!peer_review_id || !rating) {
@@ -207,6 +233,13 @@ async function handleSubmitReview(body: {
     );
   }
 
+  if (!reviewerParticipantId) {
+    return NextResponse.json(
+      { error: 'Participant profile required to submit reviews' },
+      { status: 403 }
+    );
+  }
+
   const supabase = createServiceSupabaseClient();
 
   // Update the peer review
@@ -220,6 +253,7 @@ async function handleSubmitReview(body: {
       bonus_points_earned: BONUS_POINTS_PER_REVIEW,
     })
     .eq('id', peer_review_id)
+    .eq('reviewer_id', reviewerParticipantId)
     .eq('status', 'pending')
     .select('reviewer_id, submission_id')
     .single();
@@ -267,13 +301,23 @@ async function handleSubmitReview(body: {
 }
 
 // Skip a peer review (no bonus points)
-async function handleSkipReview(body: { peer_review_id: string }) {
+async function handleSkipReview(
+  body: { peer_review_id: string },
+  reviewerParticipantId?: string
+) {
   const { peer_review_id } = body;
 
   if (!peer_review_id) {
     return NextResponse.json(
       { error: 'peer_review_id is required' },
       { status: 400 }
+    );
+  }
+
+  if (!reviewerParticipantId) {
+    return NextResponse.json(
+      { error: 'Participant profile required to skip reviews' },
+      { status: 403 }
     );
   }
 
@@ -286,6 +330,7 @@ async function handleSkipReview(body: { peer_review_id: string }) {
       completed_at: new Date().toISOString(),
     })
     .eq('id', peer_review_id)
+    .eq('reviewer_id', reviewerParticipantId)
     .eq('status', 'pending');
 
   if (error) {

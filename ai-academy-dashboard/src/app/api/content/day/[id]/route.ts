@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import fs from 'fs/promises';
 import path from 'path';
+import { VALID_ROLES } from '@/lib/validation';
 
 // In-memory cache for content
 const contentCache = new Map<string, { data: ContentResponse; timestamp: number }>();
@@ -141,10 +142,13 @@ async function getLocalContent(day: number, isAdmin: boolean, userRole?: string)
     mentorPath = path.join(basePath, 'MENTOR-NOTES.md');
   } else if (phase === 'role-specific') {
     // Role-specific: 02-Role-Tracks/{Role}/Week-XX/Day-XX/
-    const role = userRole || 'FDE'; // Default to FDE if no role specified
+    const safeRole =
+      userRole && VALID_ROLES.includes(userRole as (typeof VALID_ROLES)[number])
+        ? userRole
+        : 'FDE'; // Default to FDE if no valid role specified
     const week = getWeekForDay(day);
     const dayFolder = `Day-${formatDay(day)}`;
-    const rolePath = path.join(basePath, role, `Week-${formatDay(week)}`, dayFolder);
+    const rolePath = path.join(basePath, safeRole, `Week-${formatDay(week)}`, dayFolder);
 
     situationPath = path.join(rolePath, 'SITUATION.md');
     resourcesPath = path.join(rolePath, 'RESOURCES.md');
