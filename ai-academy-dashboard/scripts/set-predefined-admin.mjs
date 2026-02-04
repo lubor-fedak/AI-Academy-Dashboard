@@ -3,12 +3,24 @@
  * Add a predefined admin/mentor to the database.
  * Uses PREdefined_ADMIN_EMAIL and PREdefined_ADMIN_NAME from env - never in code.
  *
- * Usage:
- *   PREdefined_ADMIN_EMAIL=admin@example.com PREdefined_ADMIN_NAME="Admin" node scripts/set-predefined-admin.mjs
+ * - Local: loads .env.local if present
+ * - Vercel: uses env vars from Vercel dashboard (set PREdefined_ADMIN_EMAIL, etc.)
  *
- * Requires .env.local with NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_KEY.
+ * Runs during build - skips if PREdefined_ADMIN_EMAIL not set (e.g. PR builds).
  */
 import { createClient } from '@supabase/supabase-js';
+import { readFileSync, existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const envLocal = join(__dirname, '..', '.env.local');
+if (existsSync(envLocal)) {
+  for (const line of readFileSync(envLocal, 'utf8').split('\n')) {
+    const m = line.match(/^([^#=]+)=(.*)$/);
+    if (m) process.env[m[1].trim()] = m[2].trim();
+  }
+}
 
 const email = process.env.PREdefined_ADMIN_EMAIL;
 const name = process.env.PREdefined_ADMIN_NAME;
@@ -16,11 +28,11 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_KEY;
 
 if (!email?.trim()) {
-  console.error('Error: PREdefined_ADMIN_EMAIL is required');
-  process.exit(1);
+  console.log('set-predefined-admin: PREdefined_ADMIN_EMAIL not set, skipping');
+  process.exit(0);
 }
 if (!supabaseUrl || !serviceKey) {
-  console.error('Error: Load .env.local (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_KEY)');
+  console.error('Error: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_KEY required');
   process.exit(1);
 }
 

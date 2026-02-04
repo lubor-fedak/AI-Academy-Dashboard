@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/set-predefined-admin.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "playwright test",
@@ -16,7 +16,7 @@
     "test:firefox": "playwright test --project=firefox",
     "test:mobile": "playwright test --project=mobile-chrome --project=mobile-safari",
     "test:ci": "playwright test --reporter=github",
-    "set-predefined-admin": "node --env-file=.env.local scripts/set-predefined-admin.mjs"
+    "set-predefined-admin": "node scripts/set-predefined-admin.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.2",
