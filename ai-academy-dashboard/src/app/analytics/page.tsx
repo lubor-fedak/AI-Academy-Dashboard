@@ -1,13 +1,16 @@
-import { createServerSupabaseClient } from '@/lib/supabase-server';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
+import { useAuth } from '@/components/AuthProvider';
+import { Skeleton } from '@/components/ui/skeleton';
 import type {
   Participant,
   Assignment,
   LeaderboardView,
   TeamProgress,
 } from '@/lib/types';
-
-export const revalidate = 0;
 
 interface SubmissionWithTimestamp {
   id: string;
@@ -37,38 +40,72 @@ interface ActivityLogEntry {
   created_at: string;
 }
 
-export default async function AnalyticsPage() {
-  const supabase = await createServerSupabaseClient();
+interface AnalyticsData {
+  participants: Participant[];
+  assignments: Assignment[];
+  submissions: SubmissionWithTimestamp[];
+  leaderboard: LeaderboardView[];
+  teamProgress: TeamProgress[];
+  activityLog: ActivityLogEntry[];
+}
 
-  // Fetch all data needed for analytics
-  const [
-    participantsResult,
-    assignmentsResult,
-    submissionsResult,
-    leaderboardResult,
-    teamProgressResult,
-    activityResult,
-  ] = await Promise.all([
-    supabase.from('participants').select('*'),
-    supabase.from('assignments').select('*').order('day').order('type'),
-    supabase
-      .from('submissions')
-      .select('*, participants(name, github_username, team, role), assignments(title, day, type)')
-      .order('submitted_at', { ascending: true }),
-    supabase.from('leaderboard_view').select('*').order('rank'),
-    supabase.from('team_progress').select('*').order('team_points', { ascending: false }),
-    supabase
-      .from('activity_log')
-      .select('id, participant_id, action, created_at')
-      .order('created_at', { ascending: true }),
-  ]);
+export default function AnalyticsPage() {
+  const { user, isAdmin, userStatus, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const participants = (participantsResult.data as Participant[]) ?? [];
-  const assignments = (assignmentsResult.data as Assignment[]) ?? [];
-  const submissions = (submissionsResult.data as SubmissionWithTimestamp[]) ?? [];
-  const leaderboard = (leaderboardResult.data as LeaderboardView[]) ?? [];
-  const teamProgress = (teamProgressResult.data as TeamProgress[]) ?? [];
-  const activityLog = (activityResult.data as ActivityLogEntry[]) ?? [];
+  useEffect(() => {
+    if (authLoading) return;
+
+    // Analytics requires admin or mentor (API enforces requireAdminOrMentor)
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    const fetchData = async () => {
+      try {
+        const res = await fetch('/api/analytics');
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            router.push('/login');
+            return;
+          }
+          throw new Error('Failed to fetch analytics');
+        }
+        const json = await res.json();
+        setData(json);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load analytics');
+      }
+    };
+
+    fetchData();
+  }, [user, isAdmin, userStatus, authLoading, router]);
+
+  if (authLoading || !data) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
+          <p className="text-muted-foreground">
+            Overview of progress, activity, and statistics for mentors
+          </p>
+        </div>
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
+        <p className="text-destructive">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -78,14 +115,13 @@ export default async function AnalyticsPage() {
           Overview of progress, activity, and statistics for mentors
         </p>
       </div>
-
       <AnalyticsDashboard
-        participants={participants}
-        assignments={assignments}
-        submissions={submissions}
-        leaderboard={leaderboard}
-        teamProgress={teamProgress}
-        activityLog={activityLog}
+        participants={data.participants}
+        assignments={data.assignments}
+        submissions={data.submissions}
+        leaderboard={data.leaderboard}
+        teamProgress={data.teamProgress}
+        activityLog={data.activityLog}
       />
     </div>
   );

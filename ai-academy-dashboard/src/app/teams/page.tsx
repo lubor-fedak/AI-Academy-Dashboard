@@ -11,9 +11,9 @@ const TEAMS: TeamType[] = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta',
 export default async function TeamsPage() {
   const supabase = await createServerSupabaseClient();
 
-  // Fetch all participants
+  // Fetch all participants (public view - no email)
   const { data: participants } = await supabase
-    .from('participants')
+    .from('participants_public')
     .select('*');
 
   // Fetch team progress

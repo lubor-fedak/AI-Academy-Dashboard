@@ -41,7 +41,7 @@ export default function PeerReviewsPage() {
     const fetchParticipants = async () => {
       const supabase = getSupabaseClient();
       const { data } = await supabase
-        .from('participants')
+        .from('participants_public')
         .select('*')
         .order('name');
       setParticipants((data as Participant[]) ?? []);

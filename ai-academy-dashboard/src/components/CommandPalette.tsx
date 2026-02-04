@@ -89,7 +89,7 @@ export function CommandPalette() {
     try {
       const supabase = getSupabaseClient();
       const { data, error } = await supabase
-        .from('participants')
+        .from('participants_public')
         .select('id, name, nickname, github_username, avatar_url, role, team')
         .order('name');
 

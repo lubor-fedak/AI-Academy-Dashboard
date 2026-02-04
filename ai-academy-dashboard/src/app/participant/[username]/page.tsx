@@ -45,9 +45,9 @@ export default async function ParticipantPage({ params }: ParticipantPageProps) 
   const { username } = await params;
   const supabase = await createServerSupabaseClient();
 
-  // Fetch participant
+  // Fetch participant (public view - no email)
   const { data: participant, error } = await supabase
-    .from('participants')
+    .from('participants_public')
     .select('*')
     .eq('github_username', username)
     .single();

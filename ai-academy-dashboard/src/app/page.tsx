@@ -45,11 +45,11 @@ export default async function Dashboard() {
 
   try {
     const [participantsResult, submissionsResult, activityResult, assignmentsResult] = await Promise.all([
-      supabase.from('participants').select('id', { count: 'exact', head: true }),
+      supabase.from('participants_public').select('id', { count: 'exact', head: true }),
       supabase.from('submissions').select('id', { count: 'exact', head: true }),
       supabase
-        .from('activity_log')
-        .select('*, participants(name, github_username, avatar_url)')
+        .from('activity_log_public')
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(10),
       supabase
@@ -61,7 +61,16 @@ export default async function Dashboard() {
 
     participantCount = participantsResult.count ?? 0;
     submissionCount = submissionsResult.count ?? 0;
-    activities = (activityResult.data as ActivityLogWithParticipant[]) ?? [];
+    // Map activity_log_public flat structure to ActivityLogWithParticipant (nested participants)
+    const rawActivities = activityResult.data ?? [];
+    activities = rawActivities.map((a: { id: string; participant_id: string; action: string; details: unknown; created_at: string; name: string | null; github_username: string | null; avatar_url: string | null }) => ({
+      id: a.id,
+      participant_id: a.participant_id,
+      action: a.action,
+      details: a.details,
+      created_at: a.created_at,
+      participants: a.name ? { name: a.name, github_username: a.github_username, avatar_url: a.avatar_url } : null,
+    })) as ActivityLogWithParticipant[];
     assignments = (assignmentsResult.data as Assignment[]) ?? [];
   } catch (e) {
     fetchError = e instanceof Error ? e.message : 'Failed to load data from database.';

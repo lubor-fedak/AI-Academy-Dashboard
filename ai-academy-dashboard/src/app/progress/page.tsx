@@ -10,7 +10,7 @@ export default async function ProgressPage() {
   // Fetch all data needed for drill-down
   const [matrixResult, participantsResult, assignmentsResult, submissionsResult] = await Promise.all([
     supabase.from('progress_matrix').select('*'),
-    supabase.from('participants').select('*'),
+    supabase.from('participants_public').select('*'),
     supabase.from('assignments').select('*').order('day').order('type'),
     supabase.from('submissions').select('participant_id, assignment_id, status, submitted_at'),
   ]);

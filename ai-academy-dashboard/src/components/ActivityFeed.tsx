@@ -34,15 +34,21 @@ export function ActivityFeed({ initialData, limit = 10 }: ActivityFeedProps) {
           table: 'activity_log',
         },
         async (payload) => {
-          // Fetch the new activity with participant details
+          // Fetch the new activity from activity_log_public (no email exposure)
           const { data: newActivity, error } = await supabase
-            .from('activity_log')
-            .select('*, participants(name, github_username, avatar_url)')
+            .from('activity_log_public')
+            .select('*')
             .eq('id', payload.new.id)
             .single();
 
           if (!error && newActivity) {
-            setActivities((prev) => [newActivity as ActivityLogWithParticipant, ...prev.slice(0, limit - 1)]);
+            const mapped: ActivityLogWithParticipant = {
+              ...newActivity,
+              participants: (newActivity as { name?: string }).name
+                ? { name: (newActivity as { name: string }).name, github_username: (newActivity as { github_username: string }).github_username, avatar_url: (newActivity as { avatar_url: string }).avatar_url }
+                : null,
+            };
+            setActivities((prev) => [mapped, ...prev.slice(0, limit - 1)]);
             
             // Show toast for achievements
             if (payload.new.action === 'achievement') {
