@@ -2,16 +2,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient } from '@/lib/supabase';
 import { sendEmail, getDeadlineReminderEmail } from '@/lib/email';
 import { differenceInHours } from 'date-fns';
+import crypto from 'crypto';
 
 // This endpoint should be called by a cron job (e.g., Vercel Cron, GitHub Actions)
 // Recommended schedule: Once daily at 8:00 AM
 
 export async function GET(request: NextRequest) {
-  // Verify cron secret to prevent unauthorized access
+  // Verify cron secret to prevent unauthorized access - FAIL CLOSED
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Security: ALWAYS require CRON_SECRET - fail closed if not configured
+  if (!cronSecret) {
+    console.error('[Cron] CRON_SECRET not configured - rejecting request');
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+  }
+
+  // Use timing-safe comparison to prevent timing attacks
+  // Pad both strings to same length to avoid leaking length information
+  const expectedAuth = `Bearer ${cronSecret}`;
+  const maxLen = Math.max(authHeader?.length || 0, expectedAuth.length);
+  const paddedAuth = (authHeader || '').padEnd(maxLen, '\0');
+  const paddedExpected = expectedAuth.padEnd(maxLen, '\0');
+
+  if (!authHeader || !crypto.timingSafeEqual(Buffer.from(paddedAuth), Buffer.from(paddedExpected))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

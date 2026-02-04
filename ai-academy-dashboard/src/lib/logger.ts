@@ -179,18 +179,41 @@ export function logEmailOperation(
   log(level, `Email ${operation}: ${subject}`, { recipient, subject }, error);
 }
 
+// Security event types
+type SecurityEvent =
+  | 'auth_success'
+  | 'auth_failure'
+  | 'rate_limited'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'registration_unauthenticated'
+  | 'registration_id_mismatch'
+  | 'registration_email_mismatch';
+
 // Security event logger
 export function logSecurityEvent(
-  event: 'auth_success' | 'auth_failure' | 'rate_limited' | 'unauthorized' | 'forbidden',
+  event: SecurityEvent,
   context?: LogContext
 ): void {
   const level: LogLevel = event === 'auth_success' ? 'info' : 'warn';
   log(level, `Security: ${event}`, { securityEvent: event, ...context });
 }
 
-// Generate correlation ID for request tracing
+// Generate correlation ID for request tracing using Web Crypto API (Edge-compatible)
 export function generateCorrelationId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  // Use crypto.randomUUID if available (modern browsers and Edge Runtime)
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback - use Web Crypto getRandomValues (available in Edge Runtime)
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+  // Last resort fallback - timestamp + pseudo-random (not cryptographically secure)
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
 export default logger;

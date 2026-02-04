@@ -16,7 +16,6 @@ test.describe('Accessibility', () => {
 
     // Email input should have label
     const emailInput = page.locator('input[type="email"]');
-    const emailLabel = page.locator('label[for="email"]');
 
     // Admin tab first
     await page.click('button[role="tab"]:has-text("Admin")');

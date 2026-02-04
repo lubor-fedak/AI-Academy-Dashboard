@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
+import crypto from 'crypto';
 
 // POST /api/live-session - Create a new live session
 export async function POST(request: NextRequest) {
@@ -31,15 +32,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'mission_day_id is required' }, { status: 400 });
     }
 
-    // Generate unique join code
-    const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Validate mission_day_id is a positive integer
+    const parsedDayId = parseInt(mission_day_id, 10);
+    if (isNaN(parsedDayId) || parsedDayId <= 0) {
+      return NextResponse.json({ error: 'mission_day_id must be a positive integer' }, { status: 400 });
+    }
+
+    // Verify the mission_day exists in the database
+    const { data: missionDay, error: missionDayError } = await supabase
+      .from('mission_days')
+      .select('id')
+      .eq('id', parsedDayId)
+      .single();
+
+    if (missionDayError || !missionDay) {
+      return NextResponse.json({ error: 'Invalid mission_day_id - mission day not found' }, { status: 400 });
+    }
+
+    // Generate unique join code using cryptographically secure random
+    const joinCode = crypto.randomBytes(4).toString('hex').toUpperCase();
 
     // Create session
     const { data: session, error } = await supabase
       .from('live_sessions')
       .insert({
         instructor_id: participant.id,
-        mission_day_id: parseInt(mission_day_id),
+        mission_day_id: parsedDayId,
         join_code: joinCode,
         current_step: 1,
         current_section: 'briefing',

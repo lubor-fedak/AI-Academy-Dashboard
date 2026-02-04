@@ -769,9 +769,9 @@ Explain AI agents in **3 paragraphs**:
                   <FileItem name="logging_config.yaml" indent={2} />
                 </FolderItem>
                 <FolderItem name="data/" indent={1} color={colors.accentOrange}>
-                  <FolderItem name="cache/" indent={2} isSmall />
-                  <FolderItem name="embeddings/" indent={2} isSmall />
-                  <FolderItem name="vectordb/" indent={2} isSmall />
+                  <FolderItem name="cache/" indent={2} />
+                  <FolderItem name="embeddings/" indent={2} />
+                  <FolderItem name="vectordb/" indent={2} />
                 </FolderItem>
                 <FolderItem name="src/" indent={1} color={colors.accentGreen}>
                   <FolderItem name="core/" indent={2} color={colors.accentCyan}>
@@ -1096,14 +1096,12 @@ function FolderItem({
   indent = 0,
   color,
   isRoot = false,
-  isSmall = false,
   children,
 }: {
   name: string;
   indent?: number;
   color?: string;
   isRoot?: boolean;
-  isSmall?: boolean;
   children?: React.ReactNode;
 }) {
   const folderColor = color || (isRoot ? '#f4a460' : colors.accentOrange);

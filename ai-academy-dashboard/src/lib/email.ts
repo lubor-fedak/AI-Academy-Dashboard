@@ -1,5 +1,39 @@
 import { Resend } from 'resend';
 
+// ============================================================================
+// HTML Escaping for XSS Prevention in Email Templates
+// ============================================================================
+
+/**
+ * Escapes HTML special characters to prevent XSS attacks in email templates.
+ * While most email clients block scripts, some (like Outlook) may render them,
+ * and unescaped HTML can break email layout/display.
+ */
+function escapeHtml(text: string | undefined | null): string {
+  if (text === undefined || text === null) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
+/**
+ * Sanitizes URLs to prevent javascript: and data: protocol attacks.
+ * Only allows http:, https:, and mailto: protocols.
+ */
+function sanitizeUrl(url: string | undefined | null): string {
+  if (!url) return '#';
+  const trimmed = url.trim();
+  // Only allow safe protocols
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('mailto:')) {
+    return escapeHtml(trimmed);
+  }
+  // Block javascript:, data:, and other potentially dangerous protocols
+  return '#';
+}
+
 // Lazy initialization of Resend client
 let resendClient: Resend | null = null;
 
@@ -65,10 +99,18 @@ export function getReviewNotificationEmail(params: {
 }) {
   const { participantName, assignmentTitle, mentorRating, mentorNotes, dashboardUrl = `${APP_URL}/my-dashboard` } = params;
 
-  const stars = '★'.repeat(mentorRating) + '☆'.repeat(5 - mentorRating);
+  // Escape all dynamic values for XSS prevention
+  const safeParticipantName = escapeHtml(participantName);
+  const safeAssignmentTitle = escapeHtml(assignmentTitle);
+  const safeMentorNotes = escapeHtml(mentorNotes);
+  const safeDashboardUrl = sanitizeUrl(dashboardUrl);
+
+  // Ensure rating is within bounds
+  const safeRating = Math.min(5, Math.max(0, Math.floor(mentorRating)));
+  const stars = '★'.repeat(safeRating) + '☆'.repeat(5 - safeRating);
 
   return {
-    subject: `Your submission has been reviewed: ${assignmentTitle}`,
+    subject: `Your submission has been reviewed: ${safeAssignmentTitle}`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -95,11 +137,11 @@ export function getReviewNotificationEmail(params: {
           <tr>
             <td style="padding: 40px 30px;">
               <p style="margin: 0 0 20px; color: #374151; font-size: 16px;">
-                Hello <strong>${participantName}</strong>,
+                Hello <strong>${safeParticipantName}</strong>,
               </p>
 
               <p style="margin: 0 0 20px; color: #374151; font-size: 16px;">
-                Your submission for <strong>${assignmentTitle}</strong> has been reviewed by a mentor.
+                Your submission for <strong>${safeAssignmentTitle}</strong> has been reviewed by a mentor.
               </p>
 
               <!-- Rating Box -->
@@ -111,25 +153,25 @@ export function getReviewNotificationEmail(params: {
                   ${stars}
                 </p>
                 <p style="margin: 10px 0 0; color: #374151; font-size: 18px; font-weight: 600;">
-                  ${mentorRating}/5
+                  ${safeRating}/5
                 </p>
               </div>
 
-              ${mentorNotes ? `
+              ${safeMentorNotes ? `
               <!-- Notes -->
               <div style="background-color: #eff6ff; border-left: 4px solid #0062FF; padding: 15px; margin: 20px 0;">
                 <p style="margin: 0 0 5px; color: #1e40af; font-size: 14px; font-weight: 600;">
                   Note from mentor:
                 </p>
                 <p style="margin: 0; color: #374151; font-size: 14px;">
-                  ${mentorNotes}
+                  ${safeMentorNotes}
                 </p>
               </div>
               ` : ''}
 
               <!-- CTA Button -->
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${dashboardUrl}" style="display: inline-block; background-color: #0062FF; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                <a href="${safeDashboardUrl}" style="display: inline-block; background-color: #0062FF; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: 600;">
                   View my dashboard
                 </a>
               </div>
@@ -168,8 +210,16 @@ export function getAchievementNotificationEmail(params: {
 }) {
   const { participantName, achievementName, achievementDescription, achievementIcon, bonusPoints, dashboardUrl = `${APP_URL}/my-dashboard` } = params;
 
+  // Escape all dynamic values for XSS prevention
+  const safeParticipantName = escapeHtml(participantName);
+  const safeAchievementName = escapeHtml(achievementName);
+  const safeAchievementDescription = escapeHtml(achievementDescription);
+  const safeAchievementIcon = escapeHtml(achievementIcon);
+  const safeBonusPoints = Math.max(0, Math.floor(Number(bonusPoints) || 0));
+  const safeDashboardUrl = sanitizeUrl(dashboardUrl);
+
   return {
-    subject: `New achievement unlocked: ${achievementName}!`,
+    subject: `New achievement unlocked: ${safeAchievementName}!`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -196,29 +246,29 @@ export function getAchievementNotificationEmail(params: {
           <tr>
             <td style="padding: 40px 30px; text-align: center;">
               <p style="margin: 0 0 20px; color: #374151; font-size: 16px;">
-                Congratulations, <strong>${participantName}</strong>!
+                Congratulations, <strong>${safeParticipantName}</strong>!
               </p>
 
               <!-- Achievement Badge -->
               <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 16px; padding: 30px; margin: 20px 0; display: inline-block;">
                 <p style="margin: 0; font-size: 64px; line-height: 1;">
-                  ${achievementIcon}
+                  ${safeAchievementIcon}
                 </p>
                 <h2 style="margin: 15px 0 5px; color: #92400e; font-size: 24px; font-weight: 700;">
-                  ${achievementName}
+                  ${safeAchievementName}
                 </h2>
-                ${achievementDescription ? `
+                ${safeAchievementDescription ? `
                 <p style="margin: 0; color: #a16207; font-size: 14px;">
-                  ${achievementDescription}
+                  ${safeAchievementDescription}
                 </p>
                 ` : ''}
               </div>
 
-              ${bonusPoints > 0 ? `
+              ${safeBonusPoints > 0 ? `
               <!-- Bonus Points -->
               <div style="background-color: #ecfdf5; border-radius: 8px; padding: 15px; margin: 20px auto; max-width: 200px;">
                 <p style="margin: 0; color: #059669; font-size: 14px;">
-                  <strong>+${bonusPoints} bonus points</strong>
+                  <strong>+${safeBonusPoints} bonus points</strong>
                 </p>
               </div>
               ` : ''}
@@ -229,7 +279,7 @@ export function getAchievementNotificationEmail(params: {
 
               <!-- CTA Button -->
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${dashboardUrl}" style="display: inline-block; background-color: #f59e0b; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                <a href="${safeDashboardUrl}" style="display: inline-block; background-color: #f59e0b; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: 600;">
                   View all achievements
                 </a>
               </div>
@@ -266,25 +316,36 @@ export function getDeadlineReminderEmail(params: {
 }) {
   const { participantName, assignments, dashboardUrl = `${APP_URL}/my-dashboard` } = params;
 
+  // Escape dynamic values for XSS prevention
+  const safeParticipantName = escapeHtml(participantName);
+  const safeDashboardUrl = sanitizeUrl(dashboardUrl);
+  const safeAssignmentCount = Math.max(0, assignments.length);
+
   const assignmentsList = assignments
     .map(
-      (a) => `
+      (a) => {
+        const safeTitle = escapeHtml(a.title);
+        const safeDay = Math.max(0, Math.floor(Number(a.day) || 0));
+        const safeType = a.type === 'in_class' ? 'In-Class' : 'Homework';
+        const safeHours = Math.max(0, Math.floor(Number(a.hoursRemaining) || 0));
+        return `
       <tr>
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-          <strong>Day ${a.day}: ${a.title}</strong>
+          <strong>Day ${safeDay}: ${safeTitle}</strong>
           <br>
-          <span style="color: #6b7280; font-size: 13px;">${a.type === 'in_class' ? 'In-Class' : 'Homework'}</span>
+          <span style="color: #6b7280; font-size: 13px;">${safeType}</span>
         </td>
-        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: ${a.hoursRemaining < 24 ? '#dc2626' : '#f59e0b'}; font-weight: 600;">
-          ${a.hoursRemaining < 24 ? `${a.hoursRemaining}h` : `${Math.round(a.hoursRemaining / 24)}d`}
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; color: ${safeHours < 24 ? '#dc2626' : '#f59e0b'}; font-weight: 600;">
+          ${safeHours < 24 ? `${safeHours}h` : `${Math.round(safeHours / 24)}d`}
         </td>
       </tr>
-    `
+    `;
+      }
     )
     .join('');
 
   return {
-    subject: `Reminder: ${assignments.length} assignments near deadline`,
+    subject: `Reminder: ${safeAssignmentCount} assignments near deadline`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -311,11 +372,11 @@ export function getDeadlineReminderEmail(params: {
           <tr>
             <td style="padding: 40px 30px;">
               <p style="margin: 0 0 20px; color: #374151; font-size: 16px;">
-                Hello <strong>${participantName}</strong>,
+                Hello <strong>${safeParticipantName}</strong>,
               </p>
 
               <p style="margin: 0 0 20px; color: #374151; font-size: 16px;">
-                You have <strong>${assignments.length} ${assignments.length === 1 ? 'assignment' : 'assignments'}</strong> with an approaching deadline:
+                You have <strong>${safeAssignmentCount} ${safeAssignmentCount === 1 ? 'assignment' : 'assignments'}</strong> with an approaching deadline:
               </p>
 
               <!-- Assignments Table -->
@@ -333,7 +394,7 @@ export function getDeadlineReminderEmail(params: {
 
               <!-- CTA Button -->
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${dashboardUrl}" style="display: inline-block; background-color: #0062FF; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                <a href="${safeDashboardUrl}" style="display: inline-block; background-color: #0062FF; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: 600;">
                   View missing assignments
                 </a>
               </div>
@@ -371,6 +432,16 @@ export function getIntelDropNotificationEmail(params: {
 }) {
   const { participantName, intelTitle, intelClassification, intelPreview, intelUrl = `${APP_URL}/intel` } = params;
 
+  // Escape all dynamic values for XSS prevention
+  const safeParticipantName = escapeHtml(participantName);
+  const safeIntelTitle = escapeHtml(intelTitle);
+  const safeIntelPreview = escapeHtml(intelPreview);
+  const safeIntelUrl = sanitizeUrl(intelUrl);
+  // Only allow known classification values
+  const safeClassification = ['INFO', 'ALERT', 'URGENT', 'CLASSIFIED'].includes(intelClassification)
+    ? intelClassification
+    : 'INFO';
+
   const classificationColors: Record<string, { bg: string; text: string; border: string }> = {
     INFO: { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6' },
     ALERT: { bg: '#fef3c7', text: '#92400e', border: '#f59e0b' },
@@ -378,10 +449,10 @@ export function getIntelDropNotificationEmail(params: {
     CLASSIFIED: { bg: '#1f2937', text: '#f3f4f6', border: '#6b7280' },
   };
 
-  const colors = classificationColors[intelClassification] || classificationColors.INFO;
+  const colors = classificationColors[safeClassification];
 
   return {
-    subject: `[${intelClassification}] New Intel Drop: ${intelTitle}`,
+    subject: `[${safeClassification}] New Intel Drop: ${safeIntelTitle}`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -411,7 +482,7 @@ export function getIntelDropNotificationEmail(params: {
           <tr>
             <td style="background-color: ${colors.bg}; border-left: 4px solid ${colors.border}; padding: 12px 20px;">
               <p style="margin: 0; color: ${colors.text}; font-size: 12px; font-weight: bold; letter-spacing: 1px;">
-                CLASSIFICATION: ${intelClassification}
+                CLASSIFICATION: ${safeClassification}
               </p>
             </td>
           </tr>
@@ -420,7 +491,7 @@ export function getIntelDropNotificationEmail(params: {
           <tr>
             <td style="padding: 30px;">
               <p style="margin: 0 0 20px; color: #9ca3af; font-size: 14px;">
-                AGENT <span style="color: #60a5fa;">${participantName}</span>,
+                AGENT <span style="color: #60a5fa;">${safeParticipantName}</span>,
               </p>
 
               <p style="margin: 0 0 20px; color: #d1d5db; font-size: 14px;">
@@ -433,18 +504,18 @@ export function getIntelDropNotificationEmail(params: {
                   SUBJECT
                 </p>
                 <h2 style="margin: 0; color: #f3f4f6; font-size: 18px; font-weight: 600;">
-                  ${intelTitle}
+                  ${safeIntelTitle}
                 </h2>
-                ${intelPreview ? `
+                ${safeIntelPreview ? `
                 <p style="margin: 15px 0 0; color: #9ca3af; font-size: 13px; line-height: 1.5;">
-                  ${intelPreview}
+                  ${safeIntelPreview}
                 </p>
                 ` : ''}
               </div>
 
               <!-- CTA Button -->
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${intelUrl}" style="display: inline-block; background-color: #0062FF; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 4px; font-size: 14px; font-weight: 600; letter-spacing: 0.5px; border: 1px solid #3b82f6;">
+                <a href="${safeIntelUrl}" style="display: inline-block; background-color: #0062FF; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 4px; font-size: 14px; font-weight: 600; letter-spacing: 0.5px; border: 1px solid #3b82f6;">
                   ACCESS INTEL
                 </a>
               </div>

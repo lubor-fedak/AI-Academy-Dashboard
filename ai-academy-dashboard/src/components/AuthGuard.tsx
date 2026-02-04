@@ -53,20 +53,32 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const isAuthOnlyRoute = AUTH_ONLY_ROUTES.some(route => pathname.startsWith(route));
   const isAdminRoute = ADMIN_ROUTES.some(route => pathname.startsWith(route));
 
+  // Determine if we need to wait before redirecting
+  const needsWait = !isPublicRoute && !isLoading && !user;
+  const maxWait = hasStoredAuth() ? 5 : 3;
+
   // Wait counter for redirect delay
   useEffect(() => {
-    if (!isPublicRoute && !isLoading && !user) {
-      // If we have stored auth, wait longer (session might be loading)
-      const maxWait = hasStoredAuth() ? 5 : 3;
-
-      if (waitCount < maxWait) {
-        const timer = setTimeout(() => setWaitCount(w => w + 1), 1000);
-        return () => clearTimeout(timer);
-      }
-    } else {
-      setWaitCount(0);
+    // Only run timer when we need to wait
+    if (!needsWait || waitCount >= maxWait) {
+      return;
     }
-  }, [isPublicRoute, isLoading, user, waitCount]);
+
+    const timer = setTimeout(() => {
+      setWaitCount(prev => prev + 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [needsWait, waitCount, maxWait]);
+
+  // Reset wait count when conditions change (separate effect)
+  useEffect(() => {
+    if (!needsWait && waitCount > 0) {
+      // Schedule reset for next tick to avoid cascading renders
+      const timer = setTimeout(() => setWaitCount(0), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [needsWait, waitCount]);
 
   // Handle redirects
   useEffect(() => {

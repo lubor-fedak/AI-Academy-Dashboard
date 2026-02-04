@@ -2,10 +2,31 @@ import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { createServiceSupabaseClient } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
+/**
+ * Validate redirect path to prevent open redirect attacks.
+ * Only allows relative paths starting with / and not containing protocol schemes.
+ */
+function isSafeRedirect(path: string): boolean {
+  // Must start with single slash (not //)
+  if (!path.startsWith('/') || path.startsWith('//')) {
+    return false;
+  }
+  // Must not contain protocol scheme
+  if (path.includes('://')) {
+    return false;
+  }
+  // Must not contain backslashes (potential bypass)
+  if (path.includes('\\')) {
+    return false;
+  }
+  return true;
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
-  const next = requestUrl.searchParams.get('next') ?? '/my-dashboard';
+  const nextParam = requestUrl.searchParams.get('next');
+  const next = nextParam && isSafeRedirect(nextParam) ? nextParam : '/my-dashboard';
 
   if (code) {
     const supabase = await createServerSupabaseClient();

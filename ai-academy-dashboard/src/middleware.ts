@@ -27,7 +27,19 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
 
 // ============================================================================
 // In-Memory Rate Limit Store
-// NOTE: In production with multiple instances, use Redis instead
+// ============================================================================
+// WARNING: This in-memory store does NOT share state across multiple instances.
+// In production environments with multiple Vercel/server instances, rate limits
+// won't be enforced globally - each instance maintains its own counters.
+//
+// For production deployments, consider:
+// 1. Redis (Upstash, Redis Labs) - recommended for Vercel
+// 2. Vercel Edge Config for simple use cases
+// 3. Cloudflare Rate Limiting if using Cloudflare proxy
+// 4. External rate limiting service (e.g., Rate Limit as a Service)
+//
+// The current implementation provides basic protection against single-source
+// attacks but won't prevent distributed attacks across multiple instances.
 // ============================================================================
 
 interface RateLimitEntry {
@@ -128,6 +140,38 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
 
+  // HSTS - enforce HTTPS
+  response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+
+  // Content Security Policy - critical for XSS prevention
+  //
+  // NOTE ON 'unsafe-inline' and 'unsafe-eval':
+  // These directives are required due to framework limitations:
+  // - Next.js uses inline scripts for hydration and dynamic imports
+  // - Clerk authentication SDK requires eval for certain operations
+  // - Tailwind CSS and component libraries use inline styles
+  //
+  // FUTURE IMPROVEMENT: Migrate to nonce-based CSP when Next.js fully supports it:
+  // 1. Generate nonce per request: const nonce = crypto.randomUUID()
+  // 2. Use script-src 'nonce-${nonce}' 'strict-dynamic'
+  // 3. Pass nonce to _document.tsx for script tags
+  // See: https://nextjs.org/docs/app/building-your-application/configuring/content-security-policy
+  //
+  const cspDirectives = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://clerk.com https://*.clerk.accounts.dev https://*.clerk.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https: http:",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://clerk.com https://*.clerk.accounts.dev https://*.clerk.com https://api.github.com",
+    "frame-src 'self' https://clerk.com https://*.clerk.accounts.dev https://*.clerk.com",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+  ];
+  response.headers.set('Content-Security-Policy', cspDirectives.join('; '));
+
   // Referrer policy
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
@@ -213,7 +257,7 @@ export async function middleware(request: NextRequest) {
 
   // IMPORTANT: Refresh Supabase session for ALL routes (pages and API)
   // This ensures the session cookie is refreshed before it expires
-  let response = await updateSession(request);
+  const response = await updateSession(request);
 
   // Get client IP for rate limiting
   const clientIp = getClientIp(request);

@@ -2,16 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient } from '@/lib/supabase';
 import { sendEmail, getAchievementNotificationEmail } from '@/lib/email';
 import { ACHIEVEMENT_ICONS } from '@/lib/types';
+import { requireAuth } from '@/lib/api-auth';
+import crypto from 'crypto';
 
 const BONUS_POINTS_PER_REVIEW = 2;
 
 // GET - Fetch peer reviews for a participant
 export async function GET(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await requireAuth(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const reviewerId = searchParams.get('reviewer_id');
     const submissionId = searchParams.get('submission_id');
     const status = searchParams.get('status');
+
+    // Security: Users can only fetch their own reviews unless they're admin
+    if (reviewerId && reviewerId !== authResult.user.participantId && !authResult.user.isAdmin) {
+      return NextResponse.json(
+        { error: 'Cannot view other users\' peer reviews' },
+        { status: 403 }
+      );
+    }
 
     const supabase = createServiceSupabaseClient();
 
@@ -30,9 +46,13 @@ export async function GET(request: NextRequest) {
       `)
       .order('assigned_at', { ascending: false });
 
-    if (reviewerId) {
+    // Non-admin users can only see their own reviews
+    if (!authResult.user.isAdmin) {
+      query = query.eq('reviewer_id', authResult.user.participantId);
+    } else if (reviewerId) {
       query = query.eq('reviewer_id', reviewerId);
     }
+
     if (submissionId) {
       query = query.eq('submission_id', submissionId);
     }
@@ -63,15 +83,35 @@ export async function GET(request: NextRequest) {
 // POST - Submit a peer review or assign new peer reviews
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await requireAuth(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
+
+    if (!authResult.user.participantId) {
+      return NextResponse.json(
+        { error: 'User account not fully set up' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { action } = body;
 
     if (action === 'assign') {
+      // Only admins can assign reviews
+      if (!authResult.user.isAdmin) {
+        return NextResponse.json(
+          { error: 'Only admins can assign peer reviews' },
+          { status: 403 }
+        );
+      }
       return handleAssignReviews(body);
     } else if (action === 'submit') {
-      return handleSubmitReview(body);
+      return handleSubmitReview(body, authResult.user.participantId);
     } else if (action === 'skip') {
-      return handleSkipReview(body);
+      return handleSkipReview(body, authResult.user.participantId);
     }
 
     return NextResponse.json(
@@ -152,8 +192,11 @@ async function handleAssignReviews(body: {
     );
   }
 
-  // Randomly select reviewers
-  const shuffled = availableReviewers.sort(() => Math.random() - 0.5);
+  // Randomly select reviewers using cryptographically secure random
+  const shuffled = availableReviewers
+    .map(r => ({ r, sort: crypto.randomBytes(4).readUInt32BE(0) }))
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ r }) => r);
   const selectedReviewers = shuffled.slice(0, Math.min(count, shuffled.length));
 
   // Create peer review assignments
@@ -190,12 +233,21 @@ async function handleSubmitReview(body: {
   peer_review_id: string;
   rating: number;
   feedback?: string;
-}) {
+}, authenticatedUserId: string) {
   const { peer_review_id, rating, feedback } = body;
 
   if (!peer_review_id || !rating) {
     return NextResponse.json(
       { error: 'peer_review_id and rating are required' },
+      { status: 400 }
+    );
+  }
+
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(peer_review_id)) {
+    return NextResponse.json(
+      { error: 'Invalid peer_review_id format' },
       { status: 400 }
     );
   }
@@ -209,6 +261,34 @@ async function handleSubmitReview(body: {
 
   const supabase = createServiceSupabaseClient();
 
+  // Verify this review is assigned to the authenticated user
+  const { data: existingReview } = await supabase
+    .from('peer_reviews')
+    .select('reviewer_id, status')
+    .eq('id', peer_review_id)
+    .single();
+
+  if (!existingReview) {
+    return NextResponse.json(
+      { error: 'Peer review not found' },
+      { status: 404 }
+    );
+  }
+
+  if (existingReview.reviewer_id !== authenticatedUserId) {
+    return NextResponse.json(
+      { error: 'Not authorized to submit this review' },
+      { status: 403 }
+    );
+  }
+
+  if (existingReview.status !== 'pending') {
+    return NextResponse.json(
+      { error: 'This review has already been completed' },
+      { status: 400 }
+    );
+  }
+
   // Update the peer review
   const { data: peerReview, error } = await supabase
     .from('peer_reviews')
@@ -220,7 +300,7 @@ async function handleSubmitReview(body: {
       bonus_points_earned: BONUS_POINTS_PER_REVIEW,
     })
     .eq('id', peer_review_id)
-    .eq('status', 'pending')
+    .eq('reviewer_id', authenticatedUserId)
     .select('reviewer_id, submission_id')
     .single();
 
@@ -267,7 +347,7 @@ async function handleSubmitReview(body: {
 }
 
 // Skip a peer review (no bonus points)
-async function handleSkipReview(body: { peer_review_id: string }) {
+async function handleSkipReview(body: { peer_review_id: string }, authenticatedUserId: string) {
   const { peer_review_id } = body;
 
   if (!peer_review_id) {
@@ -277,7 +357,37 @@ async function handleSkipReview(body: { peer_review_id: string }) {
     );
   }
 
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(peer_review_id)) {
+    return NextResponse.json(
+      { error: 'Invalid peer_review_id format' },
+      { status: 400 }
+    );
+  }
+
   const supabase = createServiceSupabaseClient();
+
+  // Verify this review is assigned to the authenticated user
+  const { data: existingReview } = await supabase
+    .from('peer_reviews')
+    .select('reviewer_id, status')
+    .eq('id', peer_review_id)
+    .single();
+
+  if (!existingReview) {
+    return NextResponse.json(
+      { error: 'Peer review not found' },
+      { status: 404 }
+    );
+  }
+
+  if (existingReview.reviewer_id !== authenticatedUserId) {
+    return NextResponse.json(
+      { error: 'Not authorized to skip this review' },
+      { status: 403 }
+    );
+  }
 
   const { error } = await supabase
     .from('peer_reviews')
@@ -286,7 +396,7 @@ async function handleSkipReview(body: { peer_review_id: string }) {
       completed_at: new Date().toISOString(),
     })
     .eq('id', peer_review_id)
-    .eq('status', 'pending');
+    .eq('reviewer_id', authenticatedUserId);
 
   if (error) {
     console.error('Skip peer review error:', error);

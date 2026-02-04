@@ -13,20 +13,27 @@ interface Particle {
   delay: number;
 }
 
+// Seeded random number generator for deterministic particle positions
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed * 9999) * 10000;
+  return x - Math.floor(x);
+}
+
 export default function AIAcademyIntroPage() {
   const [countdown, setCountdown] = useState(10);
   const [showCountdown, setShowCountdown] = useState(true);
   const [phase, setPhase] = useState(0);
   const [showReplay, setShowReplay] = useState(false);
 
+  // Use seeded random for deterministic particle positions (pure function)
   const particles = useMemo<Particle[]>(() =>
     Array.from({ length: 50 }, (_, i) => ({
       id: i,
-      left: Math.random() * 100,
-      top: Math.random() * 100,
-      size: Math.random() * 3 + 1,
-      duration: Math.random() * 20 + 10,
-      delay: Math.random() * 5,
+      left: seededRandom(i * 7 + 1) * 100,
+      top: seededRandom(i * 13 + 2) * 100,
+      size: seededRandom(i * 17 + 3) * 3 + 1,
+      duration: seededRandom(i * 23 + 4) * 20 + 10,
+      delay: seededRandom(i * 29 + 5) * 5,
     })), []);
 
   const startMainAnimation = useCallback(() => {
@@ -60,33 +67,31 @@ export default function AIAcademyIntroPage() {
     return () => timeouts.forEach(t => clearTimeout(t));
   }, []);
 
-  const startCountdown = useCallback(() => {
+  const handleReplay = useCallback(() => {
     setCountdown(10);
     setShowCountdown(true);
     setPhase(0);
     setShowReplay(false);
+  }, []);
 
-    let count = 10;
-    const countdownInterval = setInterval(() => {
-      count -= 1;
-      setCountdown(count);
+  // Countdown timer effect
+  useEffect(() => {
+    if (!showCountdown) return;
 
-      if (count <= 0) {
-        clearInterval(countdownInterval);
-        setTimeout(() => {
-          setShowCountdown(false);
-          startMainAnimation();
-        }, 1000);
-      }
+    if (countdown <= 0) {
+      const timer = setTimeout(() => {
+        setShowCountdown(false);
+        startMainAnimation();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+
+    const timer = setTimeout(() => {
+      setCountdown(c => c - 1);
     }, 1000);
 
-    return () => clearInterval(countdownInterval);
-  }, [startMainAnimation]);
-
-  useEffect(() => {
-    const cleanup = startCountdown();
-    return cleanup;
-  }, [startCountdown]);
+    return () => clearTimeout(timer);
+  }, [countdown, showCountdown, startMainAnimation]);
 
   if (showCountdown) {
     return (
@@ -474,7 +479,7 @@ export default function AIAcademyIntroPage() {
       {/* Replay button */}
       {showReplay && (
         <button
-          onClick={startCountdown}
+          onClick={handleReplay}
           className="absolute bottom-8 right-8 px-4 py-2 text-white rounded-lg transition-all text-sm hover:scale-105 z-50"
           style={{ backgroundColor: KYNDRYL_RED }}
         >

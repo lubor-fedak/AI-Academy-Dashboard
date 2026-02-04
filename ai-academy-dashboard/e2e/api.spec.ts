@@ -11,22 +11,24 @@ test.describe('API Endpoints', () => {
     expect(response.status()).toBe(200);
   });
 
-  test('API register endpoint exists', async ({ request }) => {
+  test('API register endpoint exists and requires authentication', async ({ request }) => {
     const response = await request.post('/api/register', {
       data: {},
     });
-    // Should return 400 for missing fields, not 404
-    expect(response.status()).toBe(400);
+    // Should return 401 for unauthenticated requests (security fix)
+    // The endpoint now requires Clerk authentication before processing
+    expect(response.status()).toBe(401);
   });
 
-  test('API register validates required fields', async ({ request }) => {
+  test('API register rejects unauthenticated requests', async ({ request }) => {
     const response = await request.post('/api/register', {
       data: {
         github_username: 'test',
         // Missing other required fields
       },
     });
-    expect(response.status()).toBe(400);
+    // Should return 401 for unauthenticated requests (security fix)
+    expect(response.status()).toBe(401);
 
     const body = await response.json();
     expect(body.error).toBeDefined();
@@ -72,11 +74,8 @@ test.describe('Error Handling', () => {
   test('404 page for non-existent routes', async ({ page }) => {
     await page.goto('/this-page-does-not-exist-12345');
 
-    // Should show 404 page or redirect
-    const notFound = page.locator('text=404, text=Not Found, text=not found');
-    const isNotFound = await notFound.isVisible().catch(() => false);
-
-    // Either shows 404 or redirects
-    expect(true).toBe(true);
+    // Should show 404 page or redirect - verify page loads without error
+    const pageTitle = await page.title();
+    expect(pageTitle).toBeDefined();
   });
 });

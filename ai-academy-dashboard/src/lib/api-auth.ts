@@ -11,6 +11,7 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   isAdmin: boolean;
+  isMentor: boolean;
   participantId?: string;
 }
 
@@ -54,10 +55,10 @@ export async function requireAuth(
       };
     }
 
-    // Get participant details
+    // Get participant details (is_mentor may not exist in older schemas)
     const { data: participant } = await supabase
       .from('participants')
-      .select('id, is_admin')
+      .select('id, is_admin, is_mentor')
       .eq('email', user.email)
       .single();
 
@@ -65,6 +66,7 @@ export async function requireAuth(
       id: user.id,
       email: user.email || '',
       isAdmin: participant?.is_admin || false,
+      isMentor: participant?.is_mentor || false,
       participantId: participant?.id,
     };
 
@@ -128,6 +130,10 @@ export async function requireAdmin(
 /**
  * Verify that the request is from an admin or mentor
  * Mentors have special permissions for reviews
+ *
+ * Security: Only users with is_admin=true OR is_mentor=true can access.
+ * Add is_mentor column to participants table to enable mentor access:
+ *   ALTER TABLE participants ADD COLUMN IF NOT EXISTS is_mentor BOOLEAN NOT NULL DEFAULT false;
  */
 export async function requireAdminOrMentor(
   request: NextRequest
@@ -138,9 +144,8 @@ export async function requireAdminOrMentor(
     return authResult;
   }
 
-  // For now, all authenticated users with participant records can review
-  // In production, you'd want a separate mentor role
-  if (!authResult.user.participantId && !authResult.user.isAdmin) {
+  // Security: Require explicit admin or mentor role
+  if (!authResult.user.isAdmin && !authResult.user.isMentor) {
     logSecurityEvent('forbidden', {
       userId: authResult.user.id,
       path: request.nextUrl.pathname,

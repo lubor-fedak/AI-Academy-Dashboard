@@ -4,11 +4,19 @@ import crypto from 'crypto';
 
 // Verify GitHub webhook signature
 function verifySignature(payload: string, signature: string): boolean {
-  const secret = process.env.GITHUB_WEBHOOK_SECRET!;
+  const secret = process.env.GITHUB_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error('[GitHub Webhook] GITHUB_WEBHOOK_SECRET not configured');
+    return false;
+  }
   const hmac = crypto.createHmac('sha256', secret);
   const digest = 'sha256=' + hmac.update(payload).digest('hex');
   try {
-    return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature));
+    // Pad to same length for timing-safe comparison
+    const maxLen = Math.max(digest.length, signature.length);
+    const paddedDigest = digest.padEnd(maxLen, '\0');
+    const paddedSignature = signature.padEnd(maxLen, '\0');
+    return crypto.timingSafeEqual(Buffer.from(paddedDigest), Buffer.from(paddedSignature));
   } catch {
     return false;
   }
@@ -117,6 +125,12 @@ async function checkAchievements(
 }
 
 export async function POST(request: NextRequest) {
+  // Security: Fail closed if webhook secret is not configured
+  if (!process.env.GITHUB_WEBHOOK_SECRET) {
+    console.error('[GitHub Webhook] GITHUB_WEBHOOK_SECRET not configured - rejecting request');
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+  }
+
   const payload = await request.text();
   const signature = request.headers.get('x-hub-signature-256');
 

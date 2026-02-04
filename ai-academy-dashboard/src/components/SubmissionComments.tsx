@@ -234,18 +234,74 @@ export function SubmissionComments({
   );
 
   const renderMarkdown = (content: string) => {
-    // Simple markdown rendering for bold, italic, code, and mentions
-    const html = content
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-sm">$1</code>')
-      .replace(
-        /@(\w+)/g,
-        '<span class="text-[#0062FF] font-medium cursor-pointer hover:underline">@$1</span>'
-      )
-      .replace(/\n/g, '<br />');
+    // Safe markdown rendering without dangerouslySetInnerHTML
+    // Parse content into segments for safe React rendering
+    const segments: Array<{ type: 'text' | 'bold' | 'italic' | 'code' | 'mention' | 'newline'; content: string }> = [];
 
-    return <span dangerouslySetInnerHTML={{ __html: html }} />;
+    // Escape HTML entities first to prevent XSS
+    const escapeHtml = (text: string) => {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
+    // Parse the content into segments
+    const pattern = /(\*\*[^*]+\*\*)|(\*[^*]+\*)|(`[^`]+`)|(@\w+)|(\n)/g;
+    let lastIndex = 0;
+    let match;
+
+    const escapedContent = escapeHtml(content);
+
+    while ((match = pattern.exec(escapedContent)) !== null) {
+      // Add text before this match
+      if (match.index > lastIndex) {
+        segments.push({ type: 'text', content: escapedContent.slice(lastIndex, match.index) });
+      }
+
+      const matched = match[0];
+      if (matched.startsWith('**') && matched.endsWith('**')) {
+        segments.push({ type: 'bold', content: matched.slice(2, -2) });
+      } else if (matched.startsWith('*') && matched.endsWith('*')) {
+        segments.push({ type: 'italic', content: matched.slice(1, -1) });
+      } else if (matched.startsWith('`') && matched.endsWith('`')) {
+        segments.push({ type: 'code', content: matched.slice(1, -1) });
+      } else if (matched.startsWith('@')) {
+        segments.push({ type: 'mention', content: matched.slice(1) });
+      } else if (matched === '\n') {
+        segments.push({ type: 'newline', content: '' });
+      }
+
+      lastIndex = match.index + matched.length;
+    }
+
+    // Add remaining text
+    if (lastIndex < escapedContent.length) {
+      segments.push({ type: 'text', content: escapedContent.slice(lastIndex) });
+    }
+
+    return (
+      <span>
+        {segments.map((segment, index) => {
+          switch (segment.type) {
+            case 'bold':
+              return <strong key={index}>{segment.content}</strong>;
+            case 'italic':
+              return <em key={index}>{segment.content}</em>;
+            case 'code':
+              return <code key={index} className="bg-muted px-1 py-0.5 rounded text-sm">{segment.content}</code>;
+            case 'mention':
+              return <span key={index} className="text-[#0062FF] font-medium cursor-pointer hover:underline">@{segment.content}</span>;
+            case 'newline':
+              return <br key={index} />;
+            default:
+              return <span key={index}>{segment.content}</span>;
+          }
+        })}
+      </span>
+    );
   };
 
   const CommentItem = ({

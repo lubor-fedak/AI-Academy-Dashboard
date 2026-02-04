@@ -10,6 +10,12 @@ export async function GET(
     const { code } = await params;
     const supabase = await createServerSupabaseClient();
 
+    // Security: Require authentication to view participant list
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
     // Get session
     const { data: session } = await supabase
       .from('live_sessions')

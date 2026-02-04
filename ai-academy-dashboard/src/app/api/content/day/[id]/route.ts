@@ -7,14 +7,14 @@ import path from 'path';
 const contentCache = new Map<string, { data: ContentResponse; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// GitHub configuration
-const GITHUB_OWNER = process.env.GITHUB_CONTENT_OWNER || 'luborfedak';
-const GITHUB_REPO = process.env.GITHUB_CONTENT_REPO || 'ai-academy';
+// GitHub configuration - no hardcoded defaults for security
+const GITHUB_OWNER = process.env.GITHUB_CONTENT_OWNER || '';
+const GITHUB_REPO = process.env.GITHUB_CONTENT_REPO || '';
 const GITHUB_BRANCH = process.env.GITHUB_CONTENT_BRANCH || 'main';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
-// Local content path for development
-const LOCAL_CONTENT_PATH = process.env.LOCAL_CONTENT_PATH || '/Users/luborfedak/Documents/GitHub/ai-academy';
+// Local content path for development - no hardcoded paths
+const LOCAL_CONTENT_PATH = process.env.LOCAL_CONTENT_PATH || '';
 
 interface ContentResponse {
   day: number;

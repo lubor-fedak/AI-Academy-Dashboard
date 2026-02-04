@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient } from '@/lib/supabase';
 import { z } from 'zod';
+import { requireAuth } from '@/lib/api-auth';
 
 // Validation schema for tutor session
 const tutorSessionSchema = z.object({
@@ -31,6 +32,19 @@ const roleExpoInteractionSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await requireAuth(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
+
+    if (!authResult.user.participantId) {
+      return NextResponse.json(
+        { error: 'User account not fully set up' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { type = 'session', ...data } = body;
 
@@ -47,10 +61,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Security: Only allow logging for authenticated user's own sessions
+      if (validation.data.participant_id !== authResult.user.participantId) {
+        return NextResponse.json(
+          { error: 'Cannot log sessions for other users' },
+          { status: 403 }
+        );
+      }
+
       const { data: interaction, error } = await supabase
         .from('role_expo_interactions')
         .upsert({
-          participant_id: validation.data.participant_id,
+          participant_id: authResult.user.participantId,
           role_code: validation.data.role_code,
           interaction_type: validation.data.interaction_type,
           notes: validation.data.notes || null,
@@ -94,10 +116,18 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Security: Only allow logging for authenticated user's own sessions
+      if (validation.data.participant_id !== authResult.user.participantId) {
+        return NextResponse.json(
+          { error: 'Cannot log sessions for other users' },
+          { status: 403 }
+        );
+      }
+
       const { data: session, error } = await supabase
         .from('tutor_sessions')
         .upsert({
-          participant_id: validation.data.participant_id,
+          participant_id: authResult.user.participantId,
           session_date: new Date().toISOString().split('T')[0],
           day_number: validation.data.day_number,
           role_context: validation.data.role_context || null,
@@ -145,6 +175,12 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await requireAuth(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
+
     const { searchParams } = new URL(request.url);
     const participantId = searchParams.get('participant_id');
     const dayNumber = searchParams.get('day');
@@ -153,6 +189,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'participant_id is required' },
         { status: 400 }
+      );
+    }
+
+    // Security: Users can only fetch their own sessions unless they're admin
+    if (participantId !== authResult.user.participantId && !authResult.user.isAdmin) {
+      return NextResponse.json(
+        { error: 'Cannot view other users\' sessions' },
+        { status: 403 }
       );
     }
 

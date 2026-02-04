@@ -6,14 +6,14 @@ import path from 'path';
 const roleContentCache = new Map<string, { data: RoleContentResponse; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// GitHub configuration
-const GITHUB_OWNER = process.env.GITHUB_CONTENT_OWNER || 'luborfedak';
-const GITHUB_REPO = process.env.GITHUB_CONTENT_REPO || 'ai-academy';
+// GitHub configuration - no hardcoded defaults for security
+const GITHUB_OWNER = process.env.GITHUB_CONTENT_OWNER || '';
+const GITHUB_REPO = process.env.GITHUB_CONTENT_REPO || '';
 const GITHUB_BRANCH = process.env.GITHUB_CONTENT_BRANCH || 'main';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
-// Local content path for development
-const LOCAL_CONTENT_PATH = process.env.LOCAL_CONTENT_PATH || '/Users/luborfedak/Documents/GitHub/ai-academy';
+// Local content path for development - no hardcoded paths
+const LOCAL_CONTENT_PATH = process.env.LOCAL_CONTENT_PATH || '';
 
 // Valid roles
 const VALID_ROLES = ['AI-SE', 'AI-FE', 'AI-PM', 'AI-DA', 'AI-DS', 'AI-SEC', 'FDE'];

@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -152,13 +153,26 @@ async function awardRecognition(
   return !error;
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret for security
+    // Verify cron secret for security - FAIL CLOSED
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // Security: ALWAYS require CRON_SECRET - fail closed if not configured
+    if (!cronSecret) {
+      console.error('[Recognitions Cron] CRON_SECRET not configured - rejecting request');
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
+    // Use timing-safe comparison to prevent timing attacks
+    // Pad both strings to same length to avoid leaking length information
+    const expectedAuth = `Bearer ${cronSecret}`;
+    const maxLen = Math.max(authHeader?.length || 0, expectedAuth.length);
+    const paddedAuth = (authHeader || '').padEnd(maxLen, '\0');
+    const paddedExpected = expectedAuth.padEnd(maxLen, '\0');
+
+    if (!authHeader || !crypto.timingSafeEqual(Buffer.from(paddedAuth), Buffer.from(paddedExpected))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

@@ -409,11 +409,18 @@ export default function HelpPage() {
                       const items = paragraph.split('\n').filter(line => line.startsWith('- '));
                       return (
                         <ul key={pIndex} className="list-disc list-inside space-y-1 text-muted-foreground">
-                          {items.map((item, iIndex) => (
-                            <li key={iIndex} dangerouslySetInnerHTML={{
-                              __html: item.substring(2).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                            }} />
-                          ))}
+                          {items.map((item, iIndex) => {
+                            // Safe rendering of markdown bold
+                            const text = item.substring(2);
+                            const parts = text.split(/\*\*(.+?)\*\*/g);
+                            return (
+                              <li key={iIndex}>
+                                {parts.map((part, partIndex) =>
+                                  partIndex % 2 === 1 ? <strong key={partIndex}>{part}</strong> : part
+                                )}
+                              </li>
+                            );
+                          })}
                         </ul>
                       );
                     }
@@ -427,10 +434,14 @@ export default function HelpPage() {
                         </ol>
                       );
                     }
+                    // Safe rendering of paragraph with bold
+                    const parts = paragraph.split(/\*\*(.+?)\*\*/g);
                     return (
-                      <p key={pIndex} className="text-muted-foreground" dangerouslySetInnerHTML={{
-                        __html: paragraph.replace(/\*\*(.+?)\*\*/g, '<strong class="text-foreground">$1</strong>')
-                      }} />
+                      <p key={pIndex} className="text-muted-foreground">
+                        {parts.map((part, partIndex) =>
+                          partIndex % 2 === 1 ? <strong key={partIndex} className="text-foreground">{part}</strong> : part
+                        )}
+                      </p>
                     );
                   })}
                 </div>

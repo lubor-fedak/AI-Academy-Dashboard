@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendEmail, getIntelDropNotificationEmail } from '@/lib/email';
+import { requireAdmin } from '@/lib/api-auth';
+import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -27,12 +29,40 @@ interface Participant {
   email_notifications: boolean;
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // This endpoint can only be called by admins or from internal cron
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+
+    // Check if this is an internal cron call
+    let isInternalCall = false;
+    if (cronSecret && authHeader) {
+      const expectedAuth = `Bearer ${cronSecret}`;
+      if (authHeader.length === expectedAuth.length &&
+          crypto.timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedAuth))) {
+        isInternalCall = true;
+      }
+    }
+
+    // If not internal call, require admin authentication
+    if (!isInternalCall) {
+      const authResult = await requireAdmin(request);
+      if (!authResult.authenticated) {
+        return authResult.response;
+      }
+    }
+
     const { intelDropId } = await request.json();
 
     if (!intelDropId) {
       return NextResponse.json({ error: 'Intel Drop ID is required' }, { status: 400 });
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(intelDropId)) {
+      return NextResponse.json({ error: 'Invalid Intel Drop ID format' }, { status: 400 });
     }
 
     const supabase = getSupabaseAdmin();
@@ -112,13 +142,22 @@ export async function POST(request: Request) {
 }
 
 // GET endpoint to trigger notification for all unreleased intel drops that should be released
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret for security
+    // Verify cron secret for security - FAIL CLOSED
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // Security: ALWAYS require CRON_SECRET - fail closed if not configured
+    if (!cronSecret) {
+      console.error('[Intel Notification] CRON_SECRET not configured - rejecting request');
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
+    // Use timing-safe comparison to prevent timing attacks
+    const expectedAuth = `Bearer ${cronSecret}`;
+    if (!authHeader || authHeader.length !== expectedAuth.length ||
+        !crypto.timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedAuth))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

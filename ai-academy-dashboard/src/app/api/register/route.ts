@@ -1,13 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { registerSchema, validateInput, formatValidationErrors } from '@/lib/validation';
-import { logger, logApiRequest } from '@/lib/logger';
+import { logger, logApiRequest, logSecurityEvent } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   const correlationId = request.headers.get('x-correlation-id') || undefined;
 
   try {
+    // Security: Require authentication for registration
+    // Users must first authenticate via OAuth (GitHub) before registering as participants
+    const supabaseAuth = await createServerSupabaseClient();
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+
+    if (authError || !user) {
+      logSecurityEvent('registration_unauthenticated', {
+        correlationId,
+        reason: authError?.message || 'No authenticated session',
+      });
+      logApiRequest('POST', '/api/register', 401, Date.now() - startTime, { correlationId });
+      return NextResponse.json(
+        { error: 'Authentication required. Please sign in first.' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
 
     // Validate input with Zod
@@ -25,6 +43,35 @@ export async function POST(request: NextRequest) {
     }
 
     const { github_username, name, nickname, email, role, team, stream, avatar_url, auth_user_id } = validation.data;
+
+    // Security: If auth_user_id is provided, it MUST match the authenticated user
+    // This prevents users from registering on behalf of others
+    if (auth_user_id && auth_user_id !== user.id) {
+      logSecurityEvent('registration_id_mismatch', {
+        correlationId,
+        providedId: auth_user_id,
+        actualId: user.id,
+      });
+      logApiRequest('POST', '/api/register', 403, Date.now() - startTime, { correlationId });
+      return NextResponse.json(
+        { error: 'auth_user_id does not match authenticated user' },
+        { status: 403 }
+      );
+    }
+
+    // Security: Email must match authenticated user's email (if available)
+    if (user.email && email !== user.email) {
+      logSecurityEvent('registration_email_mismatch', {
+        correlationId,
+        providedEmail: email,
+        actualEmail: user.email,
+      });
+      logApiRequest('POST', '/api/register', 403, Date.now() - startTime, { correlationId });
+      return NextResponse.json(
+        { error: 'Email must match your authenticated account email' },
+        { status: 403 }
+      );
+    }
 
     const supabase = createServiceSupabaseClient();
 
@@ -93,7 +140,8 @@ export async function POST(request: NextRequest) {
 
     // Add new fields if provided (they may fail if columns don't exist yet)
     if (nickname) insertData.nickname = nickname;
-    if (auth_user_id) insertData.auth_user_id = auth_user_id;
+    // Always use the authenticated user's ID for auth_user_id
+    insertData.auth_user_id = user.id;
 
     // Insert participant
     const { data: participant, error } = await supabase

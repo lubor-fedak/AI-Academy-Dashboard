@@ -1,10 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceSupabaseClient } from '@/lib/supabase';
 import { sendEmail } from '@/lib/email';
+import { requireAuth } from '@/lib/api-auth';
+import { z } from 'zod';
+
+// Validation schemas
+const createCommentSchema = z.object({
+  submission_id: z.string().uuid(),
+  content: z.string().min(1).max(2000),
+  parent_id: z.string().uuid().nullable().optional(),
+});
+
+const updateCommentSchema = z.object({
+  comment_id: z.string().uuid(),
+  content: z.string().min(1).max(2000),
+});
 
 // GET - Fetch comments for a submission
 export async function GET(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await requireAuth(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const submissionId = searchParams.get('submission_id');
 
@@ -73,29 +93,34 @@ export async function GET(request: NextRequest) {
 // POST - Create a new comment
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await requireAuth(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
+
+    // User must have a participant record
+    if (!authResult.user.participantId) {
+      return NextResponse.json(
+        { error: 'User account not fully set up' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
-    const { submission_id, author_id, content, parent_id } = body;
 
-    if (!submission_id || !author_id || !content) {
+    // Validate input with Zod
+    const validation = createCommentSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'submission_id, author_id, and content are required' },
+        { error: 'Invalid input', details: validation.error.flatten() },
         { status: 400 }
       );
     }
 
-    if (content.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Comment content cannot be empty' },
-        { status: 400 }
-      );
-    }
-
-    if (content.length > 2000) {
-      return NextResponse.json(
-        { error: 'Comment content too long (max 2000 characters)' },
-        { status: 400 }
-      );
-    }
+    const { submission_id, content, parent_id } = validation.data;
+    // Use authenticated user's participant ID - NEVER trust client-supplied author_id
+    const author_id = authResult.user.participantId;
 
     const supabase = createServiceSupabaseClient();
 
@@ -220,19 +245,37 @@ export async function POST(request: NextRequest) {
 // PATCH - Update a comment
 export async function PATCH(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { comment_id, author_id, content } = body;
+    // Require authentication
+    const authResult = await requireAuth(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
 
-    if (!comment_id || !author_id || !content) {
+    if (!authResult.user.participantId) {
       return NextResponse.json(
-        { error: 'comment_id, author_id, and content are required' },
+        { error: 'User account not fully set up' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+
+    // Validate input with Zod
+    const validation = updateCommentSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: validation.error.flatten() },
         { status: 400 }
       );
     }
 
+    const { comment_id, content } = validation.data;
+    // Use authenticated user's participant ID for authorization
+    const author_id = authResult.user.participantId;
+
     const supabase = createServiceSupabaseClient();
 
-    // Verify ownership
+    // Verify ownership using authenticated user's ID
     const { data: existing } = await supabase
       .from('comments')
       .select('author_id')
@@ -285,27 +328,52 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete a comment
 export async function DELETE(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await requireAuth(request);
+    if (!authResult.authenticated) {
+      return authResult.response;
+    }
+
+    if (!authResult.user.participantId) {
+      return NextResponse.json(
+        { error: 'User account not fully set up' },
+        { status: 403 }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const commentId = searchParams.get('comment_id');
-    const authorId = searchParams.get('author_id');
 
-    if (!commentId || !authorId) {
+    if (!commentId) {
       return NextResponse.json(
-        { error: 'comment_id and author_id are required' },
+        { error: 'comment_id is required' },
         { status: 400 }
       );
     }
 
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(commentId)) {
+      return NextResponse.json(
+        { error: 'Invalid comment_id format' },
+        { status: 400 }
+      );
+    }
+
+    // Use authenticated user's participant ID for authorization
+    const authorId = authResult.user.participantId;
+
     const supabase = createServiceSupabaseClient();
 
-    // Verify ownership
+    // Verify ownership using authenticated user's ID
     const { data: existing } = await supabase
       .from('comments')
       .select('author_id')
       .eq('id', commentId)
       .single();
 
-    if (!existing || existing.author_id !== authorId) {
+    // Allow deletion if user is author OR is admin
+    if (!existing || (existing.author_id !== authorId && !authResult.user.isAdmin)) {
       return NextResponse.json(
         { error: 'Not authorized to delete this comment' },
         { status: 403 }
@@ -336,6 +404,19 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
+/**
+ * Escape HTML entities to prevent XSS in email content.
+ * Converts special characters to their HTML entity equivalents.
+ */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Email templates
 function getMentionNotificationEmail(params: {
   mentionedName: string;
@@ -343,15 +424,20 @@ function getMentionNotificationEmail(params: {
   commentPreview: string;
   submissionId: string;
 }) {
+  // Security: Escape all dynamic content to prevent XSS
+  const safeMentionedName = escapeHtml(params.mentionedName);
+  const safeAuthorName = escapeHtml(params.authorName);
+  const safePreview = escapeHtml(params.commentPreview);
+
   return {
-    subject: `${params.authorName} mentioned you in a comment`,
+    subject: `${safeAuthorName} mentioned you in a comment`,
     html: `
       <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #0062FF;">AI Academy Dashboard</h2>
-        <p>Hi ${params.mentionedName},</p>
-        <p><strong>${params.authorName}</strong> mentioned you in a comment:</p>
+        <p>Hi ${safeMentionedName},</p>
+        <p><strong>${safeAuthorName}</strong> mentioned you in a comment:</p>
         <blockquote style="border-left: 3px solid #0062FF; padding-left: 16px; margin: 16px 0; color: #666;">
-          "${params.commentPreview}${params.commentPreview.length >= 100 ? '...' : ''}"
+          "${safePreview}${params.commentPreview.length >= 100 ? '...' : ''}"
         </blockquote>
         <p style="margin-top: 24px;">
           <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin"
@@ -370,15 +456,20 @@ function getReplyNotificationEmail(params: {
   commentPreview: string;
   submissionId: string;
 }) {
+  // Security: Escape all dynamic content to prevent XSS
+  const safeRecipientName = escapeHtml(params.recipientName);
+  const safeAuthorName = escapeHtml(params.authorName);
+  const safePreview = escapeHtml(params.commentPreview);
+
   return {
-    subject: `${params.authorName} replied to your comment`,
+    subject: `${safeAuthorName} replied to your comment`,
     html: `
       <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #0062FF;">AI Academy Dashboard</h2>
-        <p>Hi ${params.recipientName},</p>
-        <p><strong>${params.authorName}</strong> replied to your comment:</p>
+        <p>Hi ${safeRecipientName},</p>
+        <p><strong>${safeAuthorName}</strong> replied to your comment:</p>
         <blockquote style="border-left: 3px solid #0062FF; padding-left: 16px; margin: 16px 0; color: #666;">
-          "${params.commentPreview}${params.commentPreview.length >= 100 ? '...' : ''}"
+          "${safePreview}${params.commentPreview.length >= 100 ? '...' : ''}"
         </blockquote>
         <p style="margin-top: 24px;">
           <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin"
